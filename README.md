@@ -9,6 +9,9 @@ A complete Model Context Protocol (MCP) server implementation for Godot Engine 4
 - **Node Operations**: Create, delete, rename nodes, modify properties in real-time
 - **Script Management**: Attach/detach scripts, read source code, execute GDScript
 - **Resource Access**: List project resources, read file contents
+- **Project Configuration**: Get/set project settings from project.godot
+- **Input Management**: Configure input maps, actions, and key bindings
+- **Input Simulation**: Send simulated keyboard, mouse, and gamepad events to running games
 - **Visual Feedback**: Capture screenshots of the viewport
 - **Scene Playback**: Start/stop scene playback programmatically
 - **Editor Output**: Read editor logs including print() statements, errors, and warnings
@@ -213,6 +216,143 @@ Read recent output from the Godot editor's log file. This captures all `print()`
 - Debug scripts by checking print() output
 - Monitor errors and warnings during development
 - Check game output after running a scene
+
+### Project Configuration
+
+#### `godot_project_get_setting`
+Get the value of a project setting from project.godot.
+
+**Arguments:**
+- `setting_name`: Full path to the setting (e.g., `application/config/name`)
+
+#### `godot_project_set_setting`
+Set a project setting value in project.godot.
+
+**Arguments:**
+- `setting_name`: Full path to the setting
+- `value`: New value (supports Godot types like Vector2, Color)
+
+#### `godot_project_list_settings`
+List all project settings or filter by prefix.
+
+**Arguments:**
+- `prefix` (optional): Category prefix to filter (e.g., `application/`, `display/`)
+
+### Input Map Management
+
+#### `godot_input_list_actions`
+List all input actions and their key/button bindings.
+
+#### `godot_input_get_action`
+Get detailed information about a specific input action.
+
+**Arguments:**
+- `action_name`: Name of the input action (e.g., `ui_accept`, `jump`)
+
+#### `godot_input_add_action`
+Create a new input action.
+
+**Arguments:**
+- `action_name`: Name for the new action
+- `deadzone` (optional): Deadzone for analog inputs (default: 0.5)
+
+#### `godot_input_remove_action`
+Delete an input action.
+
+**Arguments:**
+- `action_name`: Name of the action to remove
+
+#### `godot_input_add_event`
+Add a key, mouse button, or joypad event to an action.
+
+**Arguments:**
+- `action_name`: Target action name
+- `event`: Event specification (e.g., `{"type": "key", "keycode": 32, "pressed": true}`)
+
+**Example:**
+```json
+{
+  "name": "godot_input_add_event",
+  "arguments": {
+    "action_name": "jump",
+    "event": {
+      "type": "key",
+      "keycode": 32,
+      "pressed": true
+    }
+  }
+}
+```
+
+#### `godot_input_remove_event`
+Remove a specific input event from an action.
+
+### Input Event Simulation
+
+#### `godot_input_send_action`
+Send a simulated input action event to the running game.
+
+**Arguments:**
+- `action_name`: Action to trigger
+- `pressed` (optional): Whether pressed (true) or released (false)
+- `strength` (optional): Input strength 0.0-1.0
+
+#### `godot_input_send_key`
+Send a keyboard key press/release event.
+
+**Arguments:**
+- `keycode`: Key code (use `godot_input_get_constants` for values)
+- `pressed` (optional): Whether pressed (default: true)
+- `alt_pressed`, `shift_pressed`, `ctrl_pressed`, `meta_pressed` (optional): Modifier keys
+
+#### `godot_input_send_mouse_button`
+Send a mouse button event.
+
+**Arguments:**
+- `button_index`: Mouse button (1=Left, 2=Right, 3=Middle)
+- `pressed` (optional): Whether pressed
+- `position_x`, `position_y` (optional): Screen position
+- `double_click` (optional): Whether double-click
+
+#### `godot_input_send_mouse_motion`
+Send a mouse motion event.
+
+**Arguments:**
+- `position_x`, `position_y`: Mouse position
+- `relative_x`, `relative_y` (optional): Relative movement
+- `velocity_x`, `velocity_y` (optional): Movement velocity
+
+#### `godot_input_send_joypad_button`
+Send a gamepad button press event.
+
+**Arguments:**
+- `button_index`: Button index (use `godot_input_get_constants`)
+- `pressed` (optional): Whether pressed
+- `device` (optional): Controller device ID (default: 0)
+
+#### `godot_input_send_joypad_motion`
+Send a gamepad axis motion event.
+
+**Arguments:**
+- `axis`: Axis index (use `godot_input_get_constants`)
+- `axis_value`: Axis value (-1.0 to 1.0 for sticks, 0.0 to 1.0 for triggers)
+- `device` (optional): Controller device ID (default: 0)
+
+#### `godot_input_get_constants`
+Get constant values for key codes, mouse buttons, and joypad controls.
+
+**Arguments:**
+- `type` (optional): Type of constants: `all`, `keys`, `mouse`, `joypad` (default: `all`)
+
+**Example:**
+```json
+{
+  "name": "godot_input_get_constants",
+  "arguments": {
+    "type": "keys"
+  }
+}
+```
 
 ## Protocol Implementation
 

@@ -9,6 +9,9 @@ Complete reference for all MCP tools provided by the Godot MCP Server Plugin.
 - [Script Operation Tools](#script-operation-tools)
 - [Resource Tools](#resource-tools)
 - [Editor Tools](#editor-tools)
+- [Project Configuration Tools](#project-configuration-tools)
+- [Input Map Tools](#input-map-tools)
+- [Input Event Tools](#input-event-tools)
 - [Type Conversion Reference](#type-conversion-reference)
 - [Error Codes](#error-codes)
 
@@ -600,6 +603,484 @@ curl -X POST http://localhost:8765 \
 - Monitor errors and warnings during development
 - Check game output after running a scene
 - Verify that specific log messages appear
+
+---
+
+## Project Configuration Tools
+
+### godot_project_get_setting
+
+Get the value of a specific project setting from project.godot.
+
+**Parameters:**
+```json
+{
+  "setting_name": "application/config/name"  // Required: Full path to the setting
+}
+```
+
+**Returns:**
+```json
+{
+  "success": true,
+  "setting_name": "application/config/name",
+  "value": "My Game",
+  "type": "string"
+}
+```
+
+**Common Settings:**
+- `application/config/name` - Project name
+- `application/config/version` - Project version
+- `display/window/size/width` - Window width
+- `display/window/size/height` - Window height
+- `physics/2d/default_gravity` - 2D gravity
+- `rendering/quality/driver/driver_name` - Graphics driver
+
+### godot_project_set_setting
+
+Set a project setting value in project.godot.
+
+**Parameters:**
+```json
+{
+  "setting_name": "display/window/size/width",
+  "value": 1920
+}
+```
+
+**Returns:**
+```json
+{
+  "success": true,
+  "setting_name": "display/window/size/width",
+  "value": 1920,
+  "message": "Project setting updated and saved"
+}
+```
+
+**Warning:** Invalid values can break your project. Always verify setting names and value types.
+
+### godot_project_list_settings
+
+List all project settings or filter by category prefix.
+
+**Parameters:**
+```json
+{
+  "prefix": "application/"  // Optional: Category prefix filter
+}
+```
+
+**Returns:**
+```json
+{
+  "success": true,
+  "count": 5,
+  "settings": [
+    {
+      "name": "application/config/name",
+      "value": "My Game",
+      "type": "string"
+    },
+    // ... more settings
+  ]
+}
+```
+
+---
+
+## Input Map Tools
+
+### godot_input_list_actions
+
+List all input actions configured in the project with their key/button bindings.
+
+**Parameters:**
+```json
+{}
+```
+
+**Returns:**
+```json
+{
+  "success": true,
+  "count": 10,
+  "actions": [
+    {
+      "name": "ui_accept",
+      "events": [
+        {
+          "class": "InputEventKey",
+          "type": "key",
+          "keycode": 32,
+          "pressed": true,
+          "key_label": "Space"
+        }
+      ]
+    },
+    // ... more actions
+  ]
+}
+```
+
+### godot_input_get_action
+
+Get detailed information about a specific input action.
+
+**Parameters:**
+```json
+{
+  "action_name": "jump"  // Required: Name of the action
+}
+```
+
+**Returns:**
+```json
+{
+  "success": true,
+  "name": "jump",
+  "deadzone": 0.5,
+  "events": [
+    {
+      "type": "key",
+      "keycode": 32,
+      "pressed": true,
+      "key_label": "Space"
+    }
+  ]
+}
+```
+
+### godot_input_add_action
+
+Create a new input action in the project.
+
+**Parameters:**
+```json
+{
+  "action_name": "jump",     // Required: Name for the new action
+  "deadzone": 0.5            // Optional: Deadzone for analog inputs (default: 0.5)
+}
+```
+
+**Returns:**
+```json
+{
+  "success": true,
+  "action_name": "jump",
+  "deadzone": 0.5,
+  "message": "Input action created"
+}
+```
+
+### godot_input_remove_action
+
+Delete an input action from the project.
+
+**Parameters:**
+```json
+{
+  "action_name": "old_action"  // Required: Name of action to remove
+}
+```
+
+**Returns:**
+```json
+{
+  "success": true,
+  "action_name": "old_action",
+  "message": "Input action removed"
+}
+```
+
+### godot_input_add_event
+
+Add a key, mouse button, or joypad event to an existing input action.
+
+**Parameters:**
+```json
+{
+  "action_name": "jump",
+  "event": {
+    "type": "key",
+    "keycode": 32,
+    "pressed": true
+  }
+}
+```
+
+**Event Types:**
+
+**Keyboard:**
+```json
+{
+  "type": "key",
+  "keycode": 65,           // Use godot_input_get_constants for values
+  "pressed": true,
+  "alt_pressed": false,
+  "shift_pressed": false,
+  "ctrl_pressed": false
+}
+```
+
+**Mouse Button:**
+```json
+{
+  "type": "mouse_button",
+  "button_index": 1,       // 1=Left, 2=Right, 3=Middle
+  "pressed": true
+}
+```
+
+**Joypad Button:**
+```json
+{
+  "type": "joypad_button",
+  "button_index": 0,       // Use godot_input_get_constants
+  "pressed": true
+}
+```
+
+**Joypad Motion:**
+```json
+{
+  "type": "joypad_motion",
+  "axis": 0,               // Use godot_input_get_constants
+  "axis_value": 1.0        // -1.0 to 1.0 for sticks, 0.0 to 1.0 for triggers
+}
+```
+
+**Returns:**
+```json
+{
+  "success": true,
+  "action_name": "jump",
+  "event": { /* event details */ },
+  "message": "Input event added to action"
+}
+```
+
+### godot_input_remove_event
+
+Remove a specific input event from an action.
+
+**Parameters:**
+Same format as `godot_input_add_event`.
+
+**Returns:**
+```json
+{
+  "success": true,
+  "action_name": "jump",
+  "message": "Input event removed from action"
+}
+```
+
+---
+
+## Input Event Tools
+
+These tools send simulated input events to the running game. The game must be running for these to have effect.
+
+### godot_input_send_action
+
+Send a simulated input action event.
+
+**Parameters:**
+```json
+{
+  "action_name": "jump",   // Required: Action to trigger
+  "pressed": true,         // Optional: Pressed (true) or released (false)
+  "strength": 1.0          // Optional: Input strength 0.0-1.0
+}
+```
+
+**Returns:**
+```json
+{
+  "success": true,
+  "action_name": "jump",
+  "pressed": true,
+  "strength": 1.0,
+  "message": "Input action sent"
+}
+```
+
+### godot_input_send_key
+
+Send a keyboard key press/release event.
+
+**Parameters:**
+```json
+{
+  "keycode": 32,           // Required: Key code (use godot_input_get_constants)
+  "pressed": true,         // Optional: Pressed state
+  "echo": false,           // Optional: Key repeat
+  "alt_pressed": false,    // Optional: Alt modifier
+  "shift_pressed": false,  // Optional: Shift modifier
+  "ctrl_pressed": false,   // Optional: Ctrl modifier
+  "meta_pressed": false    // Optional: Meta/Windows/Command modifier
+}
+```
+
+**Returns:**
+```json
+{
+  "success": true,
+  "keycode": 32,
+  "pressed": true,
+  "key_label": "Space",
+  "message": "Key event sent"
+}
+```
+
+### godot_input_send_mouse_button
+
+Send a mouse button press/release event.
+
+**Parameters:**
+```json
+{
+  "button_index": 1,       // Required: 1=Left, 2=Right, 3=Middle
+  "pressed": true,         // Optional: Pressed state
+  "position_x": 100.0,     // Optional: Mouse X position
+  "position_y": 100.0,     // Optional: Mouse Y position
+  "double_click": false,   // Optional: Double-click flag
+  "alt_pressed": false,    // Optional: Modifiers
+  "shift_pressed": false,
+  "ctrl_pressed": false,
+  "meta_pressed": false
+}
+```
+
+**Returns:**
+```json
+{
+  "success": true,
+  "button_index": 1,
+  "pressed": true,
+  "position": {"x": 100.0, "y": 100.0},
+  "message": "Mouse button event sent"
+}
+```
+
+### godot_input_send_mouse_motion
+
+Send a mouse motion event.
+
+**Parameters:**
+```json
+{
+  "position_x": 100.0,     // Optional: Mouse X position
+  "position_y": 100.0,     // Optional: Mouse Y position
+  "relative_x": 5.0,       // Optional: Relative X movement
+  "relative_y": 5.0,       // Optional: Relative Y movement
+  "velocity_x": 10.0,      // Optional: X velocity
+  "velocity_y": 10.0       // Optional: Y velocity
+}
+```
+
+**Returns:**
+```json
+{
+  "success": true,
+  "position": {"x": 100.0, "y": 100.0},
+  "relative": {"x": 5.0, "y": 5.0},
+  "message": "Mouse motion event sent"
+}
+```
+
+### godot_input_send_joypad_button
+
+Send a gamepad button press event.
+
+**Parameters:**
+```json
+{
+  "button_index": 0,       // Required: Button index (use godot_input_get_constants)
+  "pressed": true,         // Optional: Pressed state
+  "pressure": 1.0,         // Optional: Button pressure 0.0-1.0
+  "device": 0              // Optional: Controller device ID
+}
+```
+
+**Returns:**
+```json
+{
+  "success": true,
+  "button_index": 0,
+  "pressed": true,
+  "device": 0,
+  "message": "Joypad button event sent"
+}
+```
+
+### godot_input_send_joypad_motion
+
+Send a gamepad axis motion event.
+
+**Parameters:**
+```json
+{
+  "axis": 0,               // Required: Axis index (use godot_input_get_constants)
+  "axis_value": 1.0,       // Required: Axis value (-1.0 to 1.0)
+  "device": 0              // Optional: Controller device ID
+}
+```
+
+**Returns:**
+```json
+{
+  "success": true,
+  "axis": 0,
+  "axis_value": 1.0,
+  "device": 0,
+  "message": "Joypad motion event sent"
+}
+```
+
+### godot_input_get_constants
+
+Get constant values for key codes, mouse buttons, and joypad controls.
+
+**Parameters:**
+```json
+{
+  "type": "all"  // Optional: "all", "keys", "mouse", "joypad" (default: "all")
+}
+```
+
+**Returns:**
+```json
+{
+  "success": true,
+  "keys": {
+    "KEY_SPACE": 32,
+    "KEY_ENTER": 10,
+    "KEY_A": 65,
+    "KEY_W": 87,
+    "KEY_LEFT": 16777231,
+    // ... more key constants
+  },
+  "mouse_buttons": {
+    "MOUSE_BUTTON_LEFT": 1,
+    "MOUSE_BUTTON_RIGHT": 2,
+    "MOUSE_BUTTON_MIDDLE": 3,
+    // ... more mouse buttons
+  },
+  "joypad_buttons": {
+    "JOY_BUTTON_A": 0,
+    "JOY_BUTTON_B": 1,
+    // ... more joypad buttons
+  },
+  "joypad_axes": {
+    "JOY_AXIS_LEFT_X": 0,
+    "JOY_AXIS_LEFT_Y": 1,
+    // ... more joypad axes
+  }
+}
+```
 
 ---
 

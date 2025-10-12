@@ -10,6 +10,9 @@ const NodeTools = preload("res://addons/mcp_server/tools/node_tools.gd")
 const ScriptTools = preload("res://addons/mcp_server/tools/script_tools.gd")
 const ResourceTools = preload("res://addons/mcp_server/tools/resource_tools.gd")
 const EditorTools = preload("res://addons/mcp_server/tools/editor_tools.gd")
+const ProjectTools = preload("res://addons/mcp_server/tools/project_tools.gd")
+const InputMapTools = preload("res://addons/mcp_server/tools/input_map_tools.gd")
+const InputEventTools = preload("res://addons/mcp_server/tools/input_event_tools.gd")
 
 var editor_interface: EditorInterface
 var editor_plugin: EditorPlugin
@@ -21,6 +24,9 @@ var node_tools: NodeTools
 var script_tools: ScriptTools
 var resource_tools: ResourceTools
 var editor_tools: EditorTools
+var project_tools: ProjectTools
+var input_map_tools: InputMapTools
+var input_event_tools: InputEventTools
 
 func _init() -> void:
 	scene_tools = SceneTools.new()
@@ -28,6 +34,9 @@ func _init() -> void:
 	script_tools = ScriptTools.new()
 	resource_tools = ResourceTools.new()
 	editor_tools = EditorTools.new()
+	project_tools = ProjectTools.new()
+	input_map_tools = InputMapTools.new()
+	input_event_tools = InputEventTools.new()
 
 func handle_request(request: Variant) -> Dictionary:
 	# Validate JSON-RPC 2.0 format
@@ -364,6 +373,348 @@ func _handle_tools_list(_params: Variant) -> Dictionary:
 		}
 	))
 	
+	# Project configuration tools
+	tools.append(_create_tool_schema(
+		"godot_project_get_setting",
+		"Get the value of a specific project setting from project.godot. Use this to check project configuration, read application settings, verify display properties, or inspect any configured project parameter. Common settings include 'application/config/name', 'display/window/size/width', 'physics/2d/default_gravity'.",
+		{
+			"type": "object",
+			"properties": {
+				"setting_name": {
+					"type": "string",
+					"description": "Full path to the project setting. Use forward slashes to separate categories. Examples: 'application/config/name', 'display/window/size/width', 'rendering/quality/driver/driver_name'"
+				}
+			},
+			"required": ["setting_name"]
+		}
+	))
+	
+	tools.append(_create_tool_schema(
+		"godot_project_set_setting",
+		"Set a project setting value in project.godot. Use this to modify project configuration, change application properties, update display settings, or configure any project parameter. Changes are saved to disk. Be careful as invalid values can break the project.",
+		{
+			"type": "object",
+			"properties": {
+				"setting_name": {
+					"type": "string",
+					"description": "Full path to the project setting. Examples: 'application/config/name', 'display/window/size/width'"
+				},
+				"value": {
+					"description": "New value for the setting. Type must match the setting's expected type. For Vector2/Vector3, use {\"type\": \"Vector2\", \"x\": 100, \"y\": 50}. For arrays, use JSON arrays."
+				}
+			},
+			"required": ["setting_name", "value"]
+		}
+	))
+	
+	tools.append(_create_tool_schema(
+		"godot_project_list_settings",
+		"List all project settings or filter by category prefix. Use this to explore available project settings, discover configuration options, or find the correct setting path before modifying. Returns setting names, current values, and types.",
+		{
+			"type": "object",
+			"properties": {
+				"prefix": {
+					"type": "string",
+					"description": "Optional category prefix to filter settings. Examples: 'application/', 'display/', 'input/', 'physics/'. Leave empty to list all settings. Default: ''",
+					"default": ""
+				}
+			}
+		}
+	))
+	
+	# Input map tools
+	tools.append(_create_tool_schema(
+		"godot_input_list_actions",
+		"List all input actions configured in the project with their key/button bindings. Use this to discover what input actions exist, check current key mappings, or verify input configuration before modifying. Returns action names, events (keys/buttons), and deadzone values.",
+		{"type": "object", "properties": {}}
+	))
+	
+	tools.append(_create_tool_schema(
+		"godot_input_get_action",
+		"Get detailed information about a specific input action including all its input events and deadzone. Use this to inspect an action's configuration, verify key bindings, or check deadzone settings before making changes.",
+		{
+			"type": "object",
+			"properties": {
+				"action_name": {
+					"type": "string",
+					"description": "Name of the input action to inspect. Examples: 'ui_accept', 'move_left', 'jump', 'fire'"
+				}
+			},
+			"required": ["action_name"]
+		}
+	))
+	
+	tools.append(_create_tool_schema(
+		"godot_input_add_action",
+		"Create a new input action in the project. Use this to add custom gameplay actions like 'jump', 'fire', 'interact'. After creating, add key/button events with godot_input_add_event. Changes are saved to project.godot.",
+		{
+			"type": "object",
+			"properties": {
+				"action_name": {
+					"type": "string",
+					"description": "Name for the new input action. Should be descriptive and lowercase_with_underscores. Examples: 'move_left', 'jump', 'fire', 'interact'"
+				},
+				"deadzone": {
+					"type": "number",
+					"description": "Deadzone value for analog inputs (0.0 to 1.0). Only affects joypad axes and triggers. Default: 0.5",
+					"default": 0.5
+				}
+			},
+			"required": ["action_name"]
+		}
+	))
+	
+	tools.append(_create_tool_schema(
+		"godot_input_remove_action",
+		"Delete an input action from the project. Use this to remove unused or temporary actions. Cannot be undone easily. Changes are saved to project.godot.",
+		{
+			"type": "object",
+			"properties": {
+				"action_name": {
+					"type": "string",
+					"description": "Name of the input action to remove. Example: 'old_action', 'temporary_test'"
+				}
+			},
+			"required": ["action_name"]
+		}
+	))
+	
+	tools.append(_create_tool_schema(
+		"godot_input_add_event",
+		"Add a key, mouse button, or joypad button/axis event to an existing input action. Use this to bind keys to actions, add alternative keys, or configure controller inputs. Changes are saved to project.godot.",
+		{
+			"type": "object",
+			"properties": {
+				"action_name": {
+					"type": "string",
+					"description": "Name of the input action to add the event to. Example: 'move_left', 'jump'"
+				},
+				"event": {
+					"type": "object",
+					"description": "Input event specification. For keys: {\"type\": \"key\", \"keycode\": 65, \"pressed\": true}. For mouse: {\"type\": \"mouse_button\", \"button_index\": 1, \"pressed\": true}. For joypad button: {\"type\": \"joypad_button\", \"button_index\": 0, \"pressed\": true}. For joypad axis: {\"type\": \"joypad_motion\", \"axis\": 0, \"axis_value\": 1.0}. Use godot_input_get_constants to get key/button codes."
+				}
+			},
+			"required": ["action_name", "event"]
+		}
+	))
+	
+	tools.append(_create_tool_schema(
+		"godot_input_remove_event",
+		"Remove a specific input event (key, button, etc.) from an action. Use this to unbind a key, remove duplicate bindings, or change input configuration. Changes are saved to project.godot.",
+		{
+			"type": "object",
+			"properties": {
+				"action_name": {
+					"type": "string",
+					"description": "Name of the input action to remove the event from"
+				},
+				"event": {
+					"type": "object",
+					"description": "Input event specification matching the event to remove. Same format as godot_input_add_event."
+				}
+			},
+			"required": ["action_name", "event"]
+		}
+	))
+	
+	# Input event tools
+	tools.append(_create_tool_schema(
+		"godot_input_send_action",
+		"Send a simulated input action event to the running game. Use this to test gameplay by triggering actions like 'jump', 'fire', 'move_left' without actually pressing keys. The game must be running (use godot_game_play_scene first). Equivalent to pressing a mapped action key.",
+		{
+			"type": "object",
+			"properties": {
+				"action_name": {
+					"type": "string",
+					"description": "Name of the input action to trigger. Must be a configured action. Examples: 'ui_accept', 'jump', 'fire'"
+				},
+				"pressed": {
+					"type": "boolean",
+					"description": "Whether the action is pressed (true) or released (false). Default: true",
+					"default": true
+				},
+				"strength": {
+					"type": "number",
+					"description": "Strength/pressure of the input (0.0 to 1.0). Mainly for analog inputs. Default: 1.0",
+					"default": 1.0
+				}
+			},
+			"required": ["action_name"]
+		}
+	))
+	
+	tools.append(_create_tool_schema(
+		"godot_input_send_key",
+		"Send a simulated keyboard key press/release event to the running game. Use this to test keyboard input, type text, or trigger key-specific functionality. More direct than using actions. Supports modifier keys (Ctrl, Shift, Alt).",
+		{
+			"type": "object",
+			"properties": {
+				"keycode": {
+					"type": "integer",
+					"description": "Key code for the key to press. Use godot_input_get_constants to get common key codes. Examples: KEY_A (65), KEY_SPACE (32), KEY_ENTER (10)"
+				},
+				"physical_keycode": {
+					"type": "integer",
+					"description": "Physical key code (keyboard layout independent). Use either keycode or physical_keycode."
+				},
+				"pressed": {
+					"type": "boolean",
+					"description": "Whether the key is pressed (true) or released (false). Default: true",
+					"default": true
+				},
+				"echo": {
+					"type": "boolean",
+					"description": "Whether this is a key repeat event. Default: false",
+					"default": false
+				},
+				"alt_pressed": {
+					"type": "boolean",
+					"description": "Whether Alt modifier is pressed. Default: false",
+					"default": false
+				},
+				"shift_pressed": {
+					"type": "boolean",
+					"description": "Whether Shift modifier is pressed. Default: false",
+					"default": false
+				},
+				"ctrl_pressed": {
+					"type": "boolean",
+					"description": "Whether Ctrl modifier is pressed. Default: false",
+					"default": false
+				},
+				"meta_pressed": {
+					"type": "boolean",
+					"description": "Whether Meta/Windows/Command key is pressed. Default: false",
+					"default": false
+				}
+			}
+		}
+	))
+	
+	tools.append(_create_tool_schema(
+		"godot_input_send_mouse_button",
+		"Send a simulated mouse button press/release event. Use this to test mouse input, simulate clicks, or trigger mouse-specific functionality. Can specify screen position and support modifier keys.",
+		{
+			"type": "object",
+			"properties": {
+				"button_index": {
+					"type": "integer",
+					"description": "Mouse button to press. 1=Left, 2=Right, 3=Middle, 4=Wheel Up, 5=Wheel Down. Use godot_input_get_constants for button codes."
+				},
+				"pressed": {
+					"type": "boolean",
+					"description": "Whether the button is pressed (true) or released (false). Default: true",
+					"default": true
+				},
+				"position_x": {
+					"type": "number",
+					"description": "X position of the mouse cursor. Default: 0.0",
+					"default": 0.0
+				},
+				"position_y": {
+					"type": "number",
+					"description": "Y position of the mouse cursor. Default: 0.0",
+					"default": 0.0
+				},
+				"double_click": {
+					"type": "boolean",
+					"description": "Whether this is a double-click event. Default: false",
+					"default": false
+				},
+				"alt_pressed": {"type": "boolean", "default": false},
+				"shift_pressed": {"type": "boolean", "default": false},
+				"ctrl_pressed": {"type": "boolean", "default": false},
+				"meta_pressed": {"type": "boolean", "default": false}
+			},
+			"required": ["button_index"]
+		}
+	))
+	
+	tools.append(_create_tool_schema(
+		"godot_input_send_mouse_motion",
+		"Send a simulated mouse motion event. Use this to test mouse movement, drag operations, or hover effects. Allows specifying position, relative movement, and velocity.",
+		{
+			"type": "object",
+			"properties": {
+				"position_x": {"type": "number", "description": "X position", "default": 0.0},
+				"position_y": {"type": "number", "description": "Y position", "default": 0.0},
+				"relative_x": {"type": "number", "description": "Relative X movement", "default": 0.0},
+				"relative_y": {"type": "number", "description": "Relative Y movement", "default": 0.0},
+				"velocity_x": {"type": "number", "description": "X velocity", "default": 0.0},
+				"velocity_y": {"type": "number", "description": "Y velocity", "default": 0.0},
+				"alt_pressed": {"type": "boolean", "default": false},
+				"shift_pressed": {"type": "boolean", "default": false},
+				"ctrl_pressed": {"type": "boolean", "default": false},
+				"meta_pressed": {"type": "boolean", "default": false}
+			}
+		}
+	))
+	
+	tools.append(_create_tool_schema(
+		"godot_input_send_joypad_button",
+		"Send a simulated gamepad/joypad button press event. Use this to test controller input without a physical controller. Supports pressure-sensitive buttons.",
+		{
+			"type": "object",
+			"properties": {
+				"button_index": {
+					"type": "integer",
+					"description": "Joypad button index. Use godot_input_get_constants for button codes. Examples: JOY_BUTTON_A (0), JOY_BUTTON_B (1)"
+				},
+				"pressed": {"type": "boolean", "default": true},
+				"pressure": {
+					"type": "number",
+					"description": "Button pressure (0.0 to 1.0). Default: 1.0",
+					"default": 1.0
+				},
+				"device": {
+					"type": "integer",
+					"description": "Joypad device ID (0 for first controller). Default: 0",
+					"default": 0
+				}
+			},
+			"required": ["button_index"]
+		}
+	))
+	
+	tools.append(_create_tool_schema(
+		"godot_input_send_joypad_motion",
+		"Send a simulated gamepad/joypad axis motion event. Use this to test analog stick or trigger input. Each axis ranges from -1.0 to 1.0 (sticks) or 0.0 to 1.0 (triggers).",
+		{
+			"type": "object",
+			"properties": {
+				"axis": {
+					"type": "integer",
+					"description": "Joypad axis index. Use godot_input_get_constants. Examples: JOY_AXIS_LEFT_X (0), JOY_AXIS_LEFT_Y (1)"
+				},
+				"axis_value": {
+					"type": "number",
+					"description": "Axis value. -1.0 to 1.0 for sticks, 0.0 to 1.0 for triggers."
+				},
+				"device": {
+					"type": "integer",
+					"description": "Joypad device ID (0 for first controller). Default: 0",
+					"default": 0
+				}
+			},
+			"required": ["axis", "axis_value"]
+		}
+	))
+	
+	tools.append(_create_tool_schema(
+		"godot_input_get_constants",
+		"Get helpful constant values for key codes, mouse buttons, and joypad buttons/axes. Use this to find the correct numeric values when creating input events. Returns common keyboard keys, mouse buttons, and gamepad controls.",
+		{
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"description": "Type of constants to retrieve: 'all', 'keys', 'mouse', 'joypad'. Default: 'all'",
+					"default": "all"
+				}
+			}
+		}
+	))
+	
 	return {"tools": tools}
 
 func _handle_tools_call(params: Variant) -> Variant:
@@ -385,6 +736,10 @@ func _handle_tools_call(params: Variant) -> Variant:
 	resource_tools.editor_interface = editor_interface
 	editor_tools.editor_interface = editor_interface
 	editor_tools.editor_plugin = editor_plugin
+	project_tools.editor_interface = editor_interface
+	input_map_tools.editor_interface = editor_interface
+	input_event_tools.editor_interface = editor_interface
+	input_event_tools.editor_plugin = editor_plugin
 	
 	# Route to appropriate tool
 	var result: Variant
@@ -437,6 +792,44 @@ func _handle_tools_call(params: Variant) -> Variant:
 		# Editor tools
 		"godot_editor_get_output":
 			result = editor_tools.read_editor_logs(arguments)
+		
+		# Project configuration tools
+		"godot_project_get_setting":
+			result = project_tools.get_project_setting(arguments)
+		"godot_project_set_setting":
+			result = project_tools.set_project_setting(arguments)
+		"godot_project_list_settings":
+			result = project_tools.list_project_settings(arguments)
+		
+		# Input map tools
+		"godot_input_list_actions":
+			result = input_map_tools.list_input_actions(arguments)
+		"godot_input_get_action":
+			result = input_map_tools.get_input_action(arguments)
+		"godot_input_add_action":
+			result = input_map_tools.add_input_action(arguments)
+		"godot_input_remove_action":
+			result = input_map_tools.remove_input_action(arguments)
+		"godot_input_add_event":
+			result = input_map_tools.add_input_event_to_action(arguments)
+		"godot_input_remove_event":
+			result = input_map_tools.remove_input_event_from_action(arguments)
+		
+		# Input event tools
+		"godot_input_send_action":
+			result = input_event_tools.send_input_action(arguments)
+		"godot_input_send_key":
+			result = input_event_tools.send_key_event(arguments)
+		"godot_input_send_mouse_button":
+			result = input_event_tools.send_mouse_button_event(arguments)
+		"godot_input_send_mouse_motion":
+			result = input_event_tools.send_mouse_motion_event(arguments)
+		"godot_input_send_joypad_button":
+			result = input_event_tools.send_joypad_button_event(arguments)
+		"godot_input_send_joypad_motion":
+			result = input_event_tools.send_joypad_motion_event(arguments)
+		"godot_input_get_constants":
+			result = input_event_tools.get_input_constants(arguments)
 		
 		_:
 			return _create_error_result(-32601, "Unknown tool: " + tool_name)

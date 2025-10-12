@@ -5,6 +5,30 @@ All notable changes to the Godot MCP Server Plugin will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Project configuration tools:
+  - `godot_project_get_setting` - Get project settings from project.godot
+  - `godot_project_set_setting` - Set project settings
+  - `godot_project_list_settings` - List all or filtered project settings
+- Input map management tools:
+  - `godot_input_list_actions` - List all input actions and their bindings
+  - `godot_input_get_action` - Get details about a specific input action
+  - `godot_input_add_action` - Create new input actions
+  - `godot_input_remove_action` - Delete input actions
+  - `godot_input_add_event` - Add key/button bindings to actions
+  - `godot_input_remove_event` - Remove key/button bindings from actions
+- Input event simulation tools:
+  - `godot_input_send_action` - Send simulated action events to running game
+  - `godot_input_send_key` - Send keyboard key events
+  - `godot_input_send_mouse_button` - Send mouse button events
+  - `godot_input_send_mouse_motion` - Send mouse motion events
+  - `godot_input_send_joypad_button` - Send gamepad button events
+  - `godot_input_send_joypad_motion` - Send gamepad axis motion events
+  - `godot_input_get_constants` - Get key/button constant values for input events
+- Test script `test_new_features.py` for testing new functionality
+
 ## [1.0.0] - 2025-10-12
 
 ### Added
