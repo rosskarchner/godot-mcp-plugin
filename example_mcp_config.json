@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "godot": {
+      "url": "http://localhost:8765",
+      "transport": {
+        "type": "http"
+      },
+      "description": "Godot Engine MCP Server - Allows AI agents to interact with Godot editor",
+      "notes": [
+        "Make sure the Godot Editor is running with the MCP Server plugin enabled",
+        "Default port is 8765 (configurable in Editor Settings)",
+        "Server listens on localhost only for security",
+        "Optional: Configure auth_token in Godot Editor Settings for authentication"
+      ]
+    }
+  }
+}
