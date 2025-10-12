@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "godot": {
+      "url": "http://localhost:8765",
+      "transport": {
+        "type": "http"
+      },
+      "description": "Godot Engine Editor MCP Server - Allows AI agents to inspect and manipulate Godot projects"
+    }
+  }
+}
