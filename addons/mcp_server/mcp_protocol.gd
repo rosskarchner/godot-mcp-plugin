@@ -336,8 +336,42 @@ func _handle_tools_list(_params: Variant) -> Dictionary:
 
 	tools.append(_create_tool_schema(
 		"godot_editor_capture_viewport",
-		"Capture a screenshot of the current editor viewport as a base64-encoded PNG image. Use this to see what the scene looks like visually, debug rendering issues, verify node positions and appearance, or document the scene state. Captures the 2D or 3D editor viewport that's currently active.",
-		{"type": "object", "properties": {}}
+		"Capture a screenshot of the current editor viewport as a base64-encoded PNG image. Use this to see what the scene looks like visually, debug rendering issues, verify node positions and appearance, or document the scene state. Captures the 2D or 3D editor viewport that's currently active. Default resolution is optimized to stay under 25,000 tokens.",
+		{
+			"type": "object",
+			"properties": {
+				"max_width": {
+					"type": "integer",
+					"description": "Maximum width in pixels. Image will be downscaled proportionally if larger. Default: 1280",
+					"default": 1280
+				},
+				"max_height": {
+					"type": "integer",
+					"description": "Maximum height in pixels. Image will be downscaled proportionally if larger. Default: 720",
+					"default": 720
+				},
+				"region_x": {
+					"type": "integer",
+					"description": "X coordinate of the top-left corner of the region to capture. Default: 0 (full viewport)",
+					"default": 0
+				},
+				"region_y": {
+					"type": "integer",
+					"description": "Y coordinate of the top-left corner of the region to capture. Default: 0 (full viewport)",
+					"default": 0
+				},
+				"region_width": {
+					"type": "integer",
+					"description": "Width of the region to capture in pixels. Default: 0 (full viewport width)",
+					"default": 0
+				},
+				"region_height": {
+					"type": "integer",
+					"description": "Height of the region to capture in pixels. Default: 0 (full viewport height)",
+					"default": 0
+				}
+			}
+		}
 	))
 
 	tools.append(_create_tool_schema(
@@ -783,7 +817,7 @@ func _handle_tools_call(params: Variant) -> Variant:
 		"godot_project_list_files":
 			result = resource_tools.list_resources(arguments)
 		"godot_editor_capture_viewport":
-			result = resource_tools.get_screenshot()
+			result = resource_tools.get_screenshot(arguments)
 		"godot_game_play_scene":
 			result = resource_tools.run_scene(editor_plugin)
 		"godot_game_stop_scene":

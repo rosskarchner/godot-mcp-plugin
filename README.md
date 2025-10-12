@@ -12,7 +12,7 @@ A complete Model Context Protocol (MCP) server implementation for Godot Engine 4
 - **Project Configuration**: Get/set project settings from project.godot
 - **Input Management**: Configure input maps, actions, and key bindings
 - **Input Simulation**: Send simulated keyboard, mouse, and gamepad events to running games
-- **Visual Feedback**: Capture screenshots of the viewport
+- **Visual Feedback**: Capture screenshots of the viewport with configurable resolution and region cropping
 - **Scene Playback**: Start/stop scene playback programmatically
 - **Editor Output**: Read editor logs including print() statements, errors, and warnings
 - **CORS Support**: Built-in CORS headers for web-based clients
@@ -34,7 +34,6 @@ The plugin adds settings under **Editor → Editor Settings → MCP Server**:
 - **Auto Start**: Start server when editor loads (default: true)
 - **Auth Token**: Optional authentication token
 - **Max Tree Depth**: Maximum depth for scene tree queries (default: 10)
-- **Screenshot Max Width**: Maximum screenshot width (default: 1920)
 
 ## MCP Client Configuration
 
@@ -184,7 +183,12 @@ List resources in the project.
 - `filter` (optional): File extension filter (e.g., `.tscn`, `.gd`)
 
 #### `get_screenshot`
-Capture the current viewport as a base64-encoded PNG image.
+Capture the current viewport as a base64-encoded PNG image. Default resolution (1280x720) is optimized to stay under 25,000 tokens. Supports custom resolution limits and region cropping.
+
+**Arguments:**
+- `max_width` (optional): Maximum width in pixels (default: 1280)
+- `max_height` (optional): Maximum height in pixels (default: 720)
+- `region_x`, `region_y`, `region_width`, `region_height` (optional): Capture specific viewport region
 
 #### `run_scene`
 Start playing the current scene.

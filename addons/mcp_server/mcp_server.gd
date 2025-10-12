@@ -113,17 +113,6 @@ func _setup_editor_settings() -> void:
 		"hint": PROPERTY_HINT_RANGE,
 		"hint_string": "1,100,1"
 	})
-	
-	# Screenshot max resolution
-	if not settings.has_setting(SETTINGS_PREFIX + "screenshot_max_width"):
-		settings.set_setting(SETTINGS_PREFIX + "screenshot_max_width", 1920)
-	settings.set_initial_value(SETTINGS_PREFIX + "screenshot_max_width", 1920, false)
-	settings.add_property_info({
-		"name": SETTINGS_PREFIX + "screenshot_max_width",
-		"type": TYPE_INT,
-		"hint": PROPERTY_HINT_RANGE,
-		"hint_string": "320,7680,1"
-	})
 
 func _get_setting(name: String, default_value: Variant) -> Variant:
 	var settings := EditorInterface.get_editor_settings()

@@ -24,7 +24,15 @@ func list_resources(args: Dictionary) -> Dictionary:
 		"resources": resources
 	}
 
-func get_screenshot() -> Dictionary:
+func get_screenshot(args: Dictionary = {}) -> Dictionary:
+	# Get parameters with defaults (optimized for <25k tokens)
+	var max_width: int = args.get("max_width", 1280)
+	var max_height: int = args.get("max_height", 720)
+	var region_x: int = args.get("region_x", 0)
+	var region_y: int = args.get("region_y", 0)
+	var region_width: int = args.get("region_width", 0)
+	var region_height: int = args.get("region_height", 0)
+	
 	# Get the main viewport
 	var viewport := editor_interface.get_editor_viewport_3d(0)
 	if not viewport:
@@ -39,6 +47,46 @@ func get_screenshot() -> Dictionary:
 	if not image:
 		return {"error": "Failed to capture viewport image"}
 	
+	var original_width := image.get_width()
+	var original_height := image.get_height()
+	
+	# Apply region cropping if specified
+	if region_width > 0 and region_height > 0:
+		# Validate region bounds
+		if region_x < 0 or region_y < 0 or \
+		   region_x + region_width > original_width or \
+		   region_y + region_height > original_height:
+			return {
+				"error": "Region out of bounds",
+				"viewport_size": {"width": original_width, "height": original_height},
+				"requested_region": {
+					"x": region_x, 
+					"y": region_y, 
+					"width": region_width, 
+					"height": region_height
+				}
+			}
+		
+		# Crop the image to the specified region
+		var cropped := Image.create(region_width, region_height, false, image.get_format())
+		cropped.blit_rect(image, Rect2i(region_x, region_y, region_width, region_height), Vector2i(0, 0))
+		image = cropped
+	
+	# Apply resolution scaling if needed
+	var current_width := image.get_width()
+	var current_height := image.get_height()
+	
+	if current_width > max_width or current_height > max_height:
+		# Calculate scale factor to fit within max dimensions while maintaining aspect ratio
+		var scale_x := float(max_width) / float(current_width)
+		var scale_y := float(max_height) / float(current_height)
+		var scale := min(scale_x, scale_y)
+		
+		var new_width := int(current_width * scale)
+		var new_height := int(current_height * scale)
+		
+		image.resize(new_width, new_height, Image.INTERPOLATE_LANCZOS)
+	
 	# Convert to PNG and encode as base64
 	var png_data := image.save_png_to_buffer()
 	var base64 := Marshalls.raw_to_base64(png_data)
@@ -48,6 +96,7 @@ func get_screenshot() -> Dictionary:
 		"format": "png",
 		"width": image.get_width(),
 		"height": image.get_height(),
+		"original_size": {"width": original_width, "height": original_height},
 		"data": base64
 	}
 

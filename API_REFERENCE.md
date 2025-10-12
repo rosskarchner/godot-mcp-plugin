@@ -475,22 +475,58 @@ List resources in the project.
 
 ### get_screenshot
 
-Capture the current viewport as a base64-encoded PNG image.
+Capture the current viewport as a base64-encoded PNG image with optional resolution control and region cropping. Default resolution (1280x720) is optimized to stay under 25,000 tokens for efficient transmission.
 
-**Parameters:** None
+**Parameters:**
+- `max_width` (integer, optional): Maximum width in pixels. Image will be downscaled proportionally if larger. Default: 1280
+- `max_height` (integer, optional): Maximum height in pixels. Image will be downscaled proportionally if larger. Default: 720
+- `region_x` (integer, optional): X coordinate of the top-left corner of the region to capture. Default: 0
+- `region_y` (integer, optional): Y coordinate of the top-left corner of the region to capture. Default: 0
+- `region_width` (integer, optional): Width of the region to capture in pixels. 0 means full viewport width. Default: 0
+- `region_height` (integer, optional): Height of the region to capture in pixels. 0 means full viewport height. Default: 0
 
 **Returns:**
 ```json
 {
   "success": true,
   "format": "png",
-  "width": 1920,
-  "height": 1080,
+  "width": 1280,
+  "height": 720,
+  "original_size": {
+    "width": 1920,
+    "height": 1080
+  },
   "data": "iVBORw0KGgoAAAANSUhEUgA..."  // Base64-encoded PNG
 }
 ```
 
 **Usage:**
+
+Basic screenshot with default resolution (1280x720 max, ~15k tokens):
+```python
+result = call_tool("godot_editor_capture_viewport", {})
+```
+
+High-resolution screenshot:
+```python
+result = call_tool("godot_editor_capture_viewport", {
+    "max_width": 1920,
+    "max_height": 1080
+})
+```
+
+Capture a specific region of the viewport:
+```python
+result = call_tool("godot_editor_capture_viewport", {
+    "region_x": 100,
+    "region_y": 100,
+    "region_width": 400,
+    "region_height": 300,
+    "max_width": 400,
+    "max_height": 300
+})
+```
+
 The `data` field contains a base64-encoded PNG image. Decode it to display:
 
 ```javascript
