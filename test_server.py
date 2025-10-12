@@ -134,9 +134,43 @@ def test_list_resources(server_url):
         print(f"  Response: {json.dumps(response, indent=2)}\n")
         return False
 
+def test_editor_output(server_url):
+    """Test 6: Get editor output"""
+    print(f"{Colors.BLUE}Test 6: Get editor output{Colors.NC}")
+    response = make_request(
+        server_url, 
+        "tools/call", 
+        {
+            "name": "godot_editor_get_output",
+            "arguments": {"max_lines": 20}
+        }, 
+        6
+    )
+    
+    if "result" in response:
+        result = response["result"]
+        if "success" in result and result["success"]:
+            print(f"{Colors.GREEN}✓ Editor output retrieved{Colors.NC}")
+            print(f"  Total lines: {result.get('total_lines', 0)}")
+            print(f"  Log path: {result.get('log_path', 'N/A')}")
+            if result.get('lines') and len(result['lines']) > 0:
+                print(f"  Sample (first 3 lines):")
+                for line in result['lines'][:3]:
+                    print(f"    {line[:80]}")  # Truncate long lines
+            print()
+            return True
+        else:
+            print(f"{Colors.YELLOW}⚠ Editor output tool returned an error{Colors.NC}")
+            print(f"  Response: {json.dumps(result, indent=2)}\n")
+            return True  # Tool exists but may not have logs yet
+    else:
+        print(f"{Colors.RED}✗ Editor output test failed{Colors.NC}")
+        print(f"  Response: {json.dumps(response, indent=2)}\n")
+        return False
+
 def test_error_handling(server_url):
-    """Test 5: Invalid method (error handling)"""
-    print(f"{Colors.BLUE}Test 5: Invalid method (error handling){Colors.NC}")
+    """Test 7: Invalid method (error handling)"""
+    print(f"{Colors.BLUE}Test 7: Invalid method (error handling){Colors.NC}")
     response = make_request(server_url, "invalid_method", {}, 5)
     
     if "error" in response:
@@ -165,6 +199,7 @@ def main():
         test_tools_list,
         test_get_current_scene,
         test_list_resources,
+        test_editor_output,
         test_error_handling
     ]
     

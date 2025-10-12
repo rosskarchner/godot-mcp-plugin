@@ -11,6 +11,7 @@ A complete Model Context Protocol (MCP) server implementation for Godot Engine 4
 - **Resource Access**: List project resources, read file contents
 - **Visual Feedback**: Capture screenshots of the viewport
 - **Scene Playback**: Start/stop scene playback programmatically
+- **Editor Output**: Read editor logs including print() statements, errors, and warnings
 - **CORS Support**: Built-in CORS headers for web-based clients
 - **Configurable**: Editor settings for port, authentication, limits
 
@@ -187,6 +188,31 @@ Start playing the current scene.
 
 #### `stop_scene`
 Stop the running scene.
+
+### Editor Tools
+
+#### `godot_editor_get_output`
+Read recent output from the Godot editor's log file. This captures all `print()` statements, errors, warnings, and other output from the editor and running game.
+
+**Arguments:**
+- `max_lines` (optional): Maximum number of recent log lines to return (default: 100)
+- `filter_text` (optional): Filter log lines containing specific text (case-insensitive)
+
+**Example:**
+```json
+{
+  "name": "godot_editor_get_output",
+  "arguments": {
+    "max_lines": 50,
+    "filter_text": "error"
+  }
+}
+```
+
+**Use Cases:**
+- Debug scripts by checking print() output
+- Monitor errors and warnings during development
+- Check game output after running a scene
 
 ## Protocol Implementation
 

@@ -9,6 +9,7 @@ const SceneTools = preload("res://addons/mcp_server/tools/scene_tools.gd")
 const NodeTools = preload("res://addons/mcp_server/tools/node_tools.gd")
 const ScriptTools = preload("res://addons/mcp_server/tools/script_tools.gd")
 const ResourceTools = preload("res://addons/mcp_server/tools/resource_tools.gd")
+const EditorTools = preload("res://addons/mcp_server/tools/editor_tools.gd")
 
 var editor_interface: EditorInterface
 var editor_plugin: EditorPlugin
@@ -19,12 +20,14 @@ var scene_tools: SceneTools
 var node_tools: NodeTools
 var script_tools: ScriptTools
 var resource_tools: ResourceTools
+var editor_tools: EditorTools
 
 func _init() -> void:
 	scene_tools = SceneTools.new()
 	node_tools = NodeTools.new()
 	script_tools = ScriptTools.new()
 	resource_tools = ResourceTools.new()
+	editor_tools = EditorTools.new()
 
 func handle_request(request: Variant) -> Dictionary:
 	# Validate JSON-RPC 2.0 format
@@ -340,6 +343,27 @@ func _handle_tools_list(_params: Variant) -> Dictionary:
 		{"type": "object", "properties": {}}
 	))
 	
+	# Editor tools
+	tools.append(_create_tool_schema(
+		"godot_editor_get_output",
+		"Read recent output from the Godot editor's log file. This captures all print() statements, errors, warnings, and other output from the editor and running game. Use this to debug scripts, check for errors, or monitor game output during testing.",
+		{
+			"type": "object",
+			"properties": {
+				"max_lines": {
+					"type": "integer",
+					"description": "Maximum number of recent log lines to return. Default: 100",
+					"default": 100
+				},
+				"filter_text": {
+					"type": "string",
+					"description": "Optional text to filter log lines (case-insensitive). Only lines containing this text will be returned. Default: '' (no filter)",
+					"default": ""
+				}
+			}
+		}
+	))
+	
 	return {"tools": tools}
 
 func _handle_tools_call(params: Variant) -> Variant:
@@ -359,6 +383,8 @@ func _handle_tools_call(params: Variant) -> Variant:
 	node_tools.editor_interface = editor_interface
 	script_tools.editor_interface = editor_interface
 	resource_tools.editor_interface = editor_interface
+	editor_tools.editor_interface = editor_interface
+	editor_tools.editor_plugin = editor_plugin
 	
 	# Route to appropriate tool
 	var result: Variant
@@ -408,10 +434,28 @@ func _handle_tools_call(params: Variant) -> Variant:
 		"godot_game_stop_scene":
 			result = resource_tools.stop_scene(editor_plugin)
 		
+		# Editor tools
+		"godot_editor_get_output":
+			result = editor_tools.read_editor_logs(arguments)
+		
 		_:
 			return _create_error_result(-32601, "Unknown tool: " + tool_name)
 	
-	return result
+	# Check for error in result
+	if result is Dictionary and result.has("error"):
+		# Tool returned an error - convert to proper error format
+		var error_message: String = result.error if result.error is String else str(result.error)
+		return _create_error_result(-32000, error_message)
+	
+	# Wrap successful result in MCP content format
+	return {
+		"content": [
+			{
+				"type": "text",
+				"text": JSON.stringify(result, "\t")
+			}
+		]
+	}
 
 func _handle_resources_list(_params: Variant) -> Dictionary:
 	# Return available scene files as resources

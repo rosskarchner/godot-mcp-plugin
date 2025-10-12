@@ -33,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `get_screenshot` - Capture viewport screenshot
   - `run_scene` - Start scene playback
   - `stop_scene` - Stop scene playback
+- Editor tools:
+  - `godot_editor_get_output` - Read output from editor log file (captures print() statements, errors, warnings)
 - Editor settings for configuration:
   - Configurable server port (default: 8765)
   - Auto-start on editor load option

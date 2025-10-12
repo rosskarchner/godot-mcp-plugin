@@ -8,6 +8,7 @@ Complete reference for all MCP tools provided by the Godot MCP Server Plugin.
 - [Node Operation Tools](#node-operation-tools)
 - [Script Operation Tools](#script-operation-tools)
 - [Resource Tools](#resource-tools)
+- [Editor Tools](#editor-tools)
 - [Type Conversion Reference](#type-conversion-reference)
 - [Error Codes](#error-codes)
 
@@ -528,6 +529,77 @@ Stop the running scene.
   "message": "Scene stopped"
 }
 ```
+
+---
+
+## Editor Tools
+
+### godot_editor_get_output
+
+Read recent output from the Godot editor's log file. This captures all `print()` statements, errors, warnings, and other output from the editor and running game.
+
+**Parameters:**
+```json
+{
+  "max_lines": 100,      // Optional: Maximum number of recent log lines to return (default: 100)
+  "filter_text": "error" // Optional: Filter log lines by text (case-insensitive, default: "")
+}
+```
+
+**Returns:**
+```json
+{
+  "success": true,
+  "total_lines": 45,
+  "max_lines": 100,
+  "log_path": "/home/user/.local/share/godot/app_userdata/ProjectName/logs/godot.log",
+  "lines": [
+    "--- Debugging process started ---",
+    "Godot Engine v4.2.stable.official",
+    "Player position: (100, 200)",
+    "ERROR: Null reference in update_health()",
+    "..."
+  ]
+}
+```
+
+**Example Usage:**
+```bash
+# Get last 50 lines of output
+curl -X POST http://localhost:8765 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tools/call",
+    "params": {
+      "name": "godot_editor_get_output",
+      "arguments": {"max_lines": 50}
+    },
+    "id": 1
+  }'
+
+# Get lines containing "error"
+curl -X POST http://localhost:8765 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tools/call",
+    "params": {
+      "name": "godot_editor_get_output",
+      "arguments": {
+        "max_lines": 100,
+        "filter_text": "error"
+      }
+    },
+    "id": 1
+  }'
+```
+
+**Use Cases:**
+- Debug scripts by checking print() output
+- Monitor errors and warnings during development
+- Check game output after running a scene
+- Verify that specific log messages appear
 
 ---
 
