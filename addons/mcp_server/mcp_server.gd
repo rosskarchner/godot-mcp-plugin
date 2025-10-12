@@ -20,38 +20,33 @@ const SETTINGS_PREFIX: String = "mcp_server/"
 func _enter_tree() -> void:
 	# Initialize settings
 	_setup_editor_settings()
-	
+
 	# Create protocol handler
 	mcp_protocol = MCPProtocol.new()
 	mcp_protocol.editor_interface = get_editor_interface()
 	mcp_protocol.editor_plugin = self
-	
-	# Create HTTP server
+
+	# Create HTTP server and add to tree so it gets _process calls
 	http_handler = HTTPHandler.new()
+	http_handler.name = "MCPHTTPServer"
 	http_handler.mcp_protocol = mcp_protocol
-	
+	add_child(http_handler)
+
 	# Start server if enabled
 	if _get_setting("auto_start", true):
 		start_server()
-	
-	print("MCP Server Plugin loaded")
 
 func _exit_tree() -> void:
 	stop_server()
-	
+
 	if http_handler:
+		remove_child(http_handler)
 		http_handler.queue_free()
 		http_handler = null
-	
+
 	if mcp_protocol:
 		mcp_protocol.queue_free()
 		mcp_protocol = null
-	
-	print("MCP Server Plugin unloaded")
-
-func _process(_delta: float) -> void:
-	if http_handler and server_enabled:
-		http_handler.poll()
 
 func start_server() -> bool:
 	if server_enabled:
@@ -74,7 +69,6 @@ func stop_server() -> void:
 	
 	http_handler.stop()
 	server_enabled = false
-	print("MCP Server stopped")
 
 ## Setup editor settings with defaults
 func _setup_editor_settings() -> void:

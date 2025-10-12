@@ -1,4 +1,4 @@
-extends RefCounted
+extends Node
 
 ## HTTP Handler
 ##
@@ -36,10 +36,13 @@ func stop() -> void:
 		tcp_server.stop()
 		tcp_server = null
 
+func _process(_delta: float) -> void:
+	poll()
+
 func poll() -> void:
 	if not tcp_server:
 		return
-	
+
 	# Accept new connections
 	if tcp_server.is_connection_available():
 		var conn := tcp_server.take_connection()
@@ -48,36 +51,43 @@ func poll() -> void:
 		else:
 			# Too many connections, close it
 			conn.disconnect_from_host()
-	
+
 	# Process existing connections
 	var to_remove: Array[int] = []
 	for i in range(connections.size()):
 		var conn := connections[i]
+
+		# Poll the connection to update its state
+		conn.poll()
 		var status := conn.get_status()
-		
+
 		if status == StreamPeerTCP.STATUS_NONE or status == StreamPeerTCP.STATUS_ERROR:
 			to_remove.append(i)
 			continue
-		
+
 		if status == StreamPeerTCP.STATUS_CONNECTED:
 			var available := conn.get_available_bytes()
 			if available > 0:
 				_handle_request(conn)
-	
+				to_remove.append(i)  # Remove after handling
+
 	# Remove closed connections (reverse order to maintain indices)
 	to_remove.reverse()
 	for i in to_remove:
 		connections.remove_at(i)
 
 func _handle_request(conn: StreamPeerTCP) -> void:
-	var request_data := conn.get_data(BUFFER_SIZE)
-	
+	# Read all available data
+	var available := conn.get_available_bytes()
+	var request_data := conn.get_partial_data(available)
+
 	if request_data[0] != OK:
+		push_error("Error reading request data: ", error_string(request_data[0]))
 		conn.disconnect_from_host()
 		return
-	
-	var request_text := request_data[1].get_string_from_utf8()
-	
+
+	var request_text: String = request_data[1].get_string_from_utf8()
+
 	# Parse HTTP request
 	var parsed := _parse_http_request(request_text)
 	
@@ -109,7 +119,7 @@ func _handle_request(conn: StreamPeerTCP) -> void:
 		else:
 			var request := json.data
 			# Process through MCP protocol
-			var result := mcp_protocol.handle_request(request)
+			var result: Dictionary = mcp_protocol.handle_request(request)
 			response_body = JSON.stringify(result)
 	
 	# Send response

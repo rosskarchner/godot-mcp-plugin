@@ -55,12 +55,9 @@ func load_scene(args: Dictionary) -> Dictionary:
 	
 	if not FileAccess.file_exists(path):
 		return {"error": "Scene file not found: " + path}
-	
-	var err := editor_interface.open_scene_from_path(path)
-	
-	if err != OK:
-		return {"error": "Failed to load scene: " + error_string(err)}
-	
+
+	editor_interface.open_scene_from_path(path)
+
 	return {
 		"success": true,
 		"path": path

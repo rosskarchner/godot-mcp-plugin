@@ -85,41 +85,41 @@ func _handle_tools_list(_params: Variant) -> Dictionary:
 	
 	# Scene management tools
 	tools.append(_create_tool_schema(
-		"get_scene_tree",
-		"Get the hierarchical structure of the current scene including node types, names, and paths",
+		"godot_scene_get_tree",
+		"Inspect the scene hierarchy by retrieving the complete node tree structure of the currently open scene. Use this to understand scene composition, find specific nodes by path, or analyze the scene structure before making modifications. Returns node names, types, paths, children, and transform data for spatial nodes.",
 		{
 			"type": "object",
 			"properties": {
 				"max_depth": {
 					"type": "integer",
-					"description": "Maximum depth to traverse (default: 10)",
+					"description": "Maximum depth to traverse in the node hierarchy. Use lower values (3-5) for quick overviews, higher values (10+) for complete scene analysis. Default: 10",
 					"default": 10
 				}
 			}
 		}
 	))
-	
+
 	tools.append(_create_tool_schema(
-		"get_current_scene",
-		"Get information about the currently edited scene",
+		"godot_scene_get_info",
+		"Get metadata about the currently edited scene file. Use this to check which scene is open, verify the scene path before saving, or confirm you're working in the correct scene. Returns scene file path, root node name, and type.",
 		{"type": "object", "properties": {}}
 	))
-	
+
 	tools.append(_create_tool_schema(
-		"save_scene",
-		"Save the current scene",
+		"godot_scene_save",
+		"Save the current scene to disk, persisting all changes made to nodes, properties, and hierarchy. Use this after making modifications to preserve your work. Always call this before switching scenes or running tests to ensure changes are saved.",
 		{"type": "object", "properties": {}}
 	))
-	
+
 	tools.append(_create_tool_schema(
-		"load_scene",
-		"Load a different scene for editing",
+		"godot_scene_open",
+		"Open a different scene file in the editor for editing. Use this to switch between scenes, load a scene for inspection, or prepare a specific scene for modification. The current scene will be closed (save first if needed).",
 		{
 			"type": "object",
 			"properties": {
 				"path": {
 					"type": "string",
-					"description": "Resource path to the scene file (e.g., 'res://scenes/main.tscn')"
+					"description": "Godot resource path to the scene file. Must use 'res://' prefix and end with '.tscn' or '.scn' extension. Example: 'res://scenes/levels/level_01.tscn'"
 				}
 			},
 			"required": ["path"]
@@ -128,108 +128,108 @@ func _handle_tools_list(_params: Variant) -> Dictionary:
 	
 	# Node operations
 	tools.append(_create_tool_schema(
-		"get_node_info",
-		"Get detailed information about a specific node",
+		"godot_node_get_info",
+		"Inspect a specific node to retrieve detailed information including its name, type, path, parent, children, and attached script. Use this to understand a node's role in the scene, verify its type before modifying properties, or check what script is attached. Essential before making node-specific modifications.",
 		{
 			"type": "object",
 			"properties": {
 				"node_path": {
 					"type": "string",
-					"description": "Path to the node (e.g., '/root/Node2D/Player')"
+					"description": "Scene tree path to the node. Can be absolute (starting from root) like 'Player/Camera2D' or use full path notation. Get paths from godot_scene_get_tree first if unsure."
 				}
 			},
 			"required": ["node_path"]
 		}
 	))
-	
+
 	tools.append(_create_tool_schema(
-		"get_node_properties",
-		"List all properties of a node with their current values",
+		"godot_node_list_properties",
+		"List all editable properties of a node with their current values and types. Use this to discover what properties are available on a node before modifying them, debug current property values, or understand node configuration. Returns editor-visible properties only.",
 		{
 			"type": "object",
 			"properties": {
 				"node_path": {
 					"type": "string",
-					"description": "Path to the node"
+					"description": "Scene tree path to the node whose properties you want to inspect. Example: 'Player' or 'UI/HealthBar'"
 				}
 			},
 			"required": ["node_path"]
 		}
 	))
-	
+
 	tools.append(_create_tool_schema(
-		"set_node_property",
-		"Set a property value on a specific node",
+		"godot_node_set_property",
+		"Modify a property value on a specific node. Use this to change node behavior, update transforms (position/rotation/scale), modify appearance properties, or configure node settings. The property must exist on the node - use godot_node_list_properties first to see available properties.",
 		{
 			"type": "object",
 			"properties": {
 				"node_path": {
 					"type": "string",
-					"description": "Path to the node"
+					"description": "Scene tree path to the target node. Example: 'Player/Sprite2D'"
 				},
 				"property": {
 					"type": "string",
-					"description": "Property name (e.g., 'position', 'rotation')"
+					"description": "Exact name of the property to modify. Common examples: 'position' (Vector2/Vector3), 'rotation' (float/Vector3), 'scale' (Vector2/Vector3), 'visible' (bool), 'modulate' (Color)"
 				},
 				"value": {
-					"description": "New value for the property"
+					"description": "New value for the property. Type must match property expectations. For Vector2/Vector3, use {\"type\": \"Vector2\", \"x\": 100, \"y\": 50} or array [100, 50]. For Color: {\"type\": \"Color\", \"r\": 1, \"g\": 0, \"b\": 0, \"a\": 1}"
 				}
 			},
 			"required": ["node_path", "property", "value"]
 		}
 	))
-	
+
 	tools.append(_create_tool_schema(
-		"create_node",
-		"Create a new node in the scene",
+		"godot_node_create",
+		"Add a new node as a child of an existing node in the scene. Use this to build scene structure, add gameplay elements, create UI components, or extend existing node hierarchies. The new node will be properly added to the scene tree and made editable.",
 		{
 			"type": "object",
 			"properties": {
 				"parent_path": {
 					"type": "string",
-					"description": "Path to the parent node"
+					"description": "Scene tree path to the parent node that will contain the new node. Use '.' or root node name to add to scene root. Example: 'Player' or 'UI/Panel'"
 				},
 				"node_type": {
 					"type": "string",
-					"description": "Type of node to create (e.g., 'Node2D', 'Sprite2D')"
+					"description": "Godot class name of the node type to instantiate. Must be a valid Godot node class. Common types: 'Node2D', 'Sprite2D', 'CharacterBody2D', 'Area2D', 'Camera2D', 'Node3D', 'MeshInstance3D', 'CollisionShape2D', 'Label', 'Button', 'Panel'"
 				},
 				"node_name": {
 					"type": "string",
-					"description": "Name for the new node"
+					"description": "Unique name for the new node within its parent. Should be descriptive and follow PascalCase convention. Example: 'PlayerSprite', 'AttackArea', 'MainCamera'"
 				}
 			},
 			"required": ["parent_path", "node_type", "node_name"]
 		}
 	))
-	
+
 	tools.append(_create_tool_schema(
-		"delete_node",
-		"Delete a node from the scene",
+		"godot_node_delete",
+		"Remove a node and all its children from the scene. Use this to clean up unused nodes, remove temporary test nodes, or restructure the scene hierarchy. Cannot delete the scene root node. Be careful - this operation removes all child nodes as well.",
 		{
 			"type": "object",
 			"properties": {
 				"node_path": {
 					"type": "string",
-					"description": "Path to the node to delete"
+					"description": "Scene tree path to the node to remove. The node and all its children will be deleted. Example: 'TemporaryNode' or 'Enemies/Enemy1'"
 				}
 			},
 			"required": ["node_path"]
 		}
 	))
-	
+
 	tools.append(_create_tool_schema(
-		"rename_node",
-		"Rename a node",
+		"godot_node_rename",
+		"Change the name of a node in the scene tree. Use this to improve scene organization, fix naming inconsistencies, or make node purposes clearer. Note that this changes the node's path, so any references to the old path will need updating.",
 		{
 			"type": "object",
 			"properties": {
 				"node_path": {
 					"type": "string",
-					"description": "Path to the node"
+					"description": "Current scene tree path to the node you want to rename. Example: 'Sprite2D' or 'Player/OldName'"
 				},
 				"new_name": {
 					"type": "string",
-					"description": "New name for the node"
+					"description": "New name for the node. Should be descriptive and follow PascalCase convention. Must be unique among siblings. Example: 'PlayerSprite', 'MainCamera', 'HealthBar'"
 				}
 			},
 			"required": ["node_path", "new_name"]
@@ -238,63 +238,63 @@ func _handle_tools_list(_params: Variant) -> Dictionary:
 	
 	# Script operations
 	tools.append(_create_tool_schema(
-		"get_node_script",
-		"Get the script attached to a node",
+		"godot_script_get_from_node",
+		"Check what script file is attached to a specific node. Use this to verify which script controls a node's behavior, find the script path for reading or editing, or check if a node has any script attached. Returns the script's resource path if one exists.",
 		{
 			"type": "object",
 			"properties": {
 				"node_path": {
 					"type": "string",
-					"description": "Path to the node"
+					"description": "Scene tree path to the node to inspect. Example: 'Player' or 'Enemies/Enemy1'"
 				}
 			},
 			"required": ["node_path"]
 		}
 	))
-	
+
 	tools.append(_create_tool_schema(
-		"set_node_script",
-		"Attach or modify a script on a node",
+		"godot_script_attach_to_node",
+		"Attach a GDScript file to a node, giving it custom behavior and logic. Use this to add functionality to nodes, replace an existing script, or remove a script (by passing empty string). The script file must already exist in the project.",
 		{
 			"type": "object",
 			"properties": {
 				"node_path": {
 					"type": "string",
-					"description": "Path to the node"
+					"description": "Scene tree path to the target node. Example: 'Player' or 'UI/HealthBar'"
 				},
 				"script_path": {
 					"type": "string",
-					"description": "Path to the script file (e.g., 'res://scripts/player.gd')"
+					"description": "Godot resource path to the GDScript file to attach. Use 'res://' prefix and '.gd' extension. Pass empty string \"\" to remove the current script. Example: 'res://scripts/player.gd'"
 				}
 			},
 			"required": ["node_path", "script_path"]
 		}
 	))
-	
+
 	tools.append(_create_tool_schema(
-		"get_script_source",
-		"Read the source code of a script file",
+		"godot_script_read_source",
+		"Read the complete source code of a GDScript file. Use this to inspect script logic, understand node behavior, find functions to call, or prepare for script modifications. Returns the full text content of the .gd file.",
 		{
 			"type": "object",
 			"properties": {
 				"script_path": {
 					"type": "string",
-					"description": "Path to the script file"
+					"description": "Godot resource path to the script file to read. Must be a .gd file. Example: 'res://scripts/player.gd' or 'res://addons/my_plugin/tool.gd'"
 				}
 			},
 			"required": ["script_path"]
 		}
 	))
-	
+
 	tools.append(_create_tool_schema(
-		"execute_gdscript",
-		"Execute arbitrary GDScript code (USE WITH CAUTION)",
+		"godot_script_validate_code",
+		"Validate GDScript code syntax by attempting to compile it. Use this to check if code is syntactically correct before writing to files, test code snippets, or verify script compilation. Does NOT execute the code for security reasons - only validates syntax.",
 		{
 			"type": "object",
 			"properties": {
 				"code": {
 					"type": "string",
-					"description": "GDScript code to execute"
+					"description": "Complete GDScript source code to validate. Should include proper class structure with extends statement. Example: 'extends Node2D\\nfunc _ready():\\n\\tpass'"
 				}
 			},
 			"required": ["code"]
@@ -303,40 +303,40 @@ func _handle_tools_list(_params: Variant) -> Dictionary:
 	
 	# Resource operations
 	tools.append(_create_tool_schema(
-		"list_resources",
-		"List resources in the project",
+		"godot_project_list_files",
+		"Scan the project directory to discover available resource files. Use this to explore project structure, find specific asset types, locate scenes or scripts, or get an overview of project contents. Can filter by file extension and search specific directories.",
 		{
 			"type": "object",
 			"properties": {
 				"directory": {
 					"type": "string",
-					"description": "Directory to list (e.g., 'res://scenes')",
+					"description": "Starting directory to scan. Use 'res://' for project root, or specify subdirectories like 'res://scenes', 'res://scripts', 'res://assets'. Defaults to entire project. Default: 'res://'",
 					"default": "res://"
 				},
 				"filter": {
 					"type": "string",
-					"description": "File extension filter (e.g., '.tscn', '.gd')",
+					"description": "File extension to filter results (include the dot). Leave empty to list all files. Examples: '.tscn' (scenes), '.gd' (scripts), '.png' (images), '.tres' (resources). Default: '' (all files)",
 					"default": ""
 				}
 			}
 		}
 	))
-	
+
 	tools.append(_create_tool_schema(
-		"get_screenshot",
-		"Capture the current viewport as a base64-encoded PNG image",
+		"godot_editor_capture_viewport",
+		"Capture a screenshot of the current editor viewport as a base64-encoded PNG image. Use this to see what the scene looks like visually, debug rendering issues, verify node positions and appearance, or document the scene state. Captures the 2D or 3D editor viewport that's currently active.",
 		{"type": "object", "properties": {}}
 	))
-	
+
 	tools.append(_create_tool_schema(
-		"run_scene",
-		"Start playing the current scene",
+		"godot_game_play_scene",
+		"Start running the currently open scene in play mode. Use this to test scene functionality, verify game behavior, check physics interactions, or see scripts in action. Equivalent to pressing F6 or the 'Play Scene' button in the editor.",
 		{"type": "object", "properties": {}}
 	))
-	
+
 	tools.append(_create_tool_schema(
-		"stop_scene",
-		"Stop the running scene",
+		"godot_game_stop_scene",
+		"Stop the currently running scene and return to edit mode. Use this after testing is complete, when you need to make changes, or to reset the game state. Returns the editor to normal editing mode.",
 		{"type": "object", "properties": {}}
 	))
 	
@@ -364,48 +364,48 @@ func _handle_tools_call(params: Variant) -> Variant:
 	var result: Variant
 	
 	match tool_name:
-		# Scene tools
-		"get_scene_tree":
+		# Scene tools (new names)
+		"godot_scene_get_tree":
 			result = scene_tools.get_scene_tree(arguments)
-		"get_current_scene":
+		"godot_scene_get_info":
 			result = scene_tools.get_current_scene()
-		"save_scene":
+		"godot_scene_save":
 			result = scene_tools.save_scene()
-		"load_scene":
+		"godot_scene_open":
 			result = scene_tools.load_scene(arguments)
-		
-		# Node tools
-		"get_node_info":
+
+		# Node tools (new names)
+		"godot_node_get_info":
 			result = node_tools.get_node_info(arguments)
-		"get_node_properties":
+		"godot_node_list_properties":
 			result = node_tools.get_node_properties(arguments)
-		"set_node_property":
+		"godot_node_set_property":
 			result = node_tools.set_node_property(arguments)
-		"create_node":
+		"godot_node_create":
 			result = node_tools.create_node(arguments)
-		"delete_node":
+		"godot_node_delete":
 			result = node_tools.delete_node(arguments)
-		"rename_node":
+		"godot_node_rename":
 			result = node_tools.rename_node(arguments)
-		
-		# Script tools
-		"get_node_script":
+
+		# Script tools (new names)
+		"godot_script_get_from_node":
 			result = script_tools.get_node_script(arguments)
-		"set_node_script":
+		"godot_script_attach_to_node":
 			result = script_tools.set_node_script(arguments)
-		"get_script_source":
+		"godot_script_read_source":
 			result = script_tools.get_script_source(arguments)
-		"execute_gdscript":
+		"godot_script_validate_code":
 			result = script_tools.execute_gdscript(arguments)
-		
-		# Resource tools
-		"list_resources":
+
+		# Resource tools (new names)
+		"godot_project_list_files":
 			result = resource_tools.list_resources(arguments)
-		"get_screenshot":
+		"godot_editor_capture_viewport":
 			result = resource_tools.get_screenshot()
-		"run_scene":
+		"godot_game_play_scene":
 			result = resource_tools.run_scene(editor_plugin)
-		"stop_scene":
+		"godot_game_stop_scene":
 			result = resource_tools.stop_scene(editor_plugin)
 		
 		_:
