@@ -100,23 +100,139 @@ func get_editor_screenshot(args: Dictionary = {}) -> Dictionary:
 		"data": base64
 	}
 
-func run_scene(editor_plugin: EditorPlugin) -> Dictionary:
+func run_scene(editor_plugin: EditorPlugin, args: Dictionary = {}) -> Dictionary:
+	# Handle autoload injection if requested
+	var enable_screenshot_api: bool = args.get("enable_screenshot_api", false)
+	var autoload_enabled := false
+
+	if enable_screenshot_api:
+		# Add the screenshot server autoload
+		var autoload_path := "res://addons/mcp_server/runtime/game_screenshot_server.gd"
+		var autoload_name := "MCPGameScreenshotServer"
+
+		# Check if autoload already exists
+		if not ProjectSettings.has_setting("autoload/" + autoload_name):
+			# Add autoload to project settings
+			ProjectSettings.set_setting("autoload/" + autoload_name, autoload_path)
+			var save_result := ProjectSettings.save()
+
+			if save_result != OK:
+				return {"error": "Failed to save autoload settings: " + error_string(save_result)}
+
+			autoload_enabled = true
+
 	# Play the current scene
 	editor_interface.play_current_scene()
-	
-	return {
+
+	var result := {
 		"success": true,
 		"message": "Scene started"
 	}
 
+	if enable_screenshot_api:
+		result["screenshot_api"] = {
+			"enabled": true,
+			"port": 8766,
+			"endpoint": "http://127.0.0.1:8766/screenshot",
+			"autoload_added": autoload_enabled,
+			"note": "Screenshot API is available at http://127.0.0.1:8766/screenshot. Supports query params: max_width, max_height. Screenshots over 1MB will be saved to disk and return a file_path instead of base64 data."
+		}
+
+	return result
+
 func stop_scene(editor_plugin: EditorPlugin) -> Dictionary:
 	# Stop the running scene
 	editor_interface.stop_playing_scene()
-	
+
 	return {
 		"success": true,
 		"message": "Scene stopped"
 	}
+
+func get_game_screenshot(args: Dictionary = {}) -> Dictionary:
+	# Get parameters with defaults
+	var max_width: int = args.get("max_width", 1280)
+	var max_height: int = args.get("max_height", 720)
+	var port: int = args.get("port", 8766)
+	var save_to_disk: bool = args.get("save_to_disk", false)
+
+	# Build URL with query parameters
+	var url := "http://127.0.0.1:" + str(port) + "/screenshot"
+	url += "?max_width=" + str(max_width)
+	url += "&max_height=" + str(max_height)
+	url += "&save_to_disk=" + ("true" if save_to_disk else "false")
+
+	# Create HTTP request
+	var http := HTTPClient.new()
+	var err := http.connect_to_host("127.0.0.1", port)
+
+	if err != OK:
+		return {
+			"error": "Failed to connect to game screenshot server. Is the game running with screenshot API enabled?",
+			"details": error_string(err),
+			"port": port
+		}
+
+	# Wait for connection
+	var timeout := 30  # 3 seconds timeout (100ms per poll * 30)
+	var poll_count := 0
+
+	while http.get_status() == HTTPClient.STATUS_CONNECTING or http.get_status() == HTTPClient.STATUS_RESOLVING:
+		http.poll()
+		OS.delay_msec(100)
+		poll_count += 1
+		if poll_count > timeout:
+			return {"error": "Connection timeout. Is the game running with screenshot API enabled?"}
+
+	if http.get_status() != HTTPClient.STATUS_CONNECTED:
+		return {
+			"error": "Failed to connect to game screenshot server",
+			"status": http.get_status()
+		}
+
+	# Send request
+	var request_path := "/screenshot?max_width=" + str(max_width) + "&max_height=" + str(max_height) + "&save_to_disk=" + ("true" if save_to_disk else "false")
+	err = http.request(HTTPClient.METHOD_GET, request_path, [])
+
+	if err != OK:
+		return {"error": "Failed to send request: " + error_string(err)}
+
+	# Wait for response
+	poll_count = 0
+	while http.get_status() == HTTPClient.STATUS_REQUESTING:
+		http.poll()
+		OS.delay_msec(100)
+		poll_count += 1
+		if poll_count > timeout:
+			return {"error": "Request timeout"}
+
+	if not http.has_response():
+		return {"error": "No response from server"}
+
+	# Read response body
+	var response_body := PackedByteArray()
+
+	while http.get_status() == HTTPClient.STATUS_BODY:
+		http.poll()
+		var chunk := http.read_response_body_chunk()
+		if chunk.size() == 0:
+			OS.delay_msec(100)
+		else:
+			response_body.append_array(chunk)
+
+	# Parse JSON response
+	var json := JSON.new()
+	var parse_err := json.parse(response_body.get_string_from_utf8())
+
+	if parse_err != OK:
+		return {"error": "Failed to parse response: " + json.get_error_message()}
+
+	var data = json.data
+
+	if data is Dictionary:
+		return data
+	else:
+		return {"error": "Invalid response format"}
 
 func _scan_directory(dir: DirAccess, path: String, filter: String, resources: Array[Dictionary]) -> void:
 	dir.list_dir_begin()

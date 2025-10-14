@@ -376,14 +376,53 @@ func _handle_tools_list(_params: Variant) -> Dictionary:
 
 	tools.append(_create_tool_schema(
 		"godot_game_play_scene",
-		"Start running the currently open scene in play mode. Use this to test scene functionality, verify game behavior, check physics interactions, or see scripts in action. Equivalent to pressing F6 or the 'Play Scene' button in the editor.",
-		{"type": "object", "properties": {}}
+		"Start running the currently open scene in play mode. Use this to test scene functionality, verify game behavior, check physics interactions, or see scripts in action. Optionally enable a screenshot API server that runs inside the game for capturing screenshots via HTTP. Equivalent to pressing F6 or the 'Play Scene' button in the editor.",
+		{
+			"type": "object",
+			"properties": {
+				"enable_screenshot_api": {
+					"type": "boolean",
+					"description": "If true, injects and enables an autoload that creates an HTTP API (port 8766) for capturing screenshots of the running game. The autoload only runs during debugging (not in exports). Screenshots over 1MB are saved to disk. Default: false",
+					"default": false
+				}
+			}
+		}
 	))
 
 	tools.append(_create_tool_schema(
 		"godot_game_stop_scene",
 		"Stop the currently running scene and return to edit mode. Use this after testing is complete, when you need to make changes, or to reset the game state. Returns the editor to normal editing mode.",
 		{"type": "object", "properties": {}}
+	))
+
+	tools.append(_create_tool_schema(
+		"godot_game_get_screenshot",
+		"Capture a screenshot from the RUNNING GAME (not the editor) via HTTP API. The game must be running with screenshot API enabled (use godot_game_play_scene with enable_screenshot_api=true first). Returns a base64-encoded PNG image by default, or a file path if the image exceeds 1MB or if save_to_disk is explicitly requested. This captures what the player sees during gameplay, not the editor viewport.",
+		{
+			"type": "object",
+			"properties": {
+				"max_width": {
+					"type": "integer",
+					"description": "Maximum width in pixels. Image will be downscaled proportionally if larger. Default: 1280",
+					"default": 1280
+				},
+				"max_height": {
+					"type": "integer",
+					"description": "Maximum height in pixels. Image will be downscaled proportionally if larger. Default: 720",
+					"default": 720
+				},
+				"port": {
+					"type": "integer",
+					"description": "Port number where the game screenshot server is running. Default: 8766",
+					"default": 8766
+				},
+				"save_to_disk": {
+					"type": "boolean",
+					"description": "If true, save the screenshot to disk and return the file path instead of base64 data. Useful when you want a persistent file reference or to avoid large base64 strings in responses. Screenshots are saved to user://mcp_screenshots/ directory. Default: false",
+					"default": false
+				}
+			}
+		}
 	))
 	
 	# Editor tools
@@ -819,9 +858,11 @@ func _handle_tools_call(params: Variant) -> Variant:
 		"godot_editor_capture_viewport":
 			result = resource_tools.get_editor_screenshot(arguments)
 		"godot_game_play_scene":
-			result = resource_tools.run_scene(editor_plugin)
+			result = resource_tools.run_scene(editor_plugin, arguments)
 		"godot_game_stop_scene":
 			result = resource_tools.stop_scene(editor_plugin)
+		"godot_game_get_screenshot":
+			result = resource_tools.get_game_screenshot(arguments)
 		
 		# Editor tools
 		"godot_editor_get_output":

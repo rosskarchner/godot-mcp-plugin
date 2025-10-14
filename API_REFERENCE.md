@@ -539,13 +539,18 @@ document.body.appendChild(img);
 
 ---
 
-### run_scene
+### godot_game_play_scene
 
-Start playing the current scene.
+Start playing the current scene with optional screenshot API support.
 
-**Parameters:** None
+**Parameters:**
+```json
+{
+  "enable_screenshot_api": false  // Optional: Enable HTTP screenshot API on port 8766 (default: false)
+}
+```
 
-**Returns:**
+**Returns (without screenshot API):**
 ```json
 {
   "success": true,
@@ -553,9 +558,133 @@ Start playing the current scene.
 }
 ```
 
+**Returns (with screenshot API enabled):**
+```json
+{
+  "success": true,
+  "message": "Scene started",
+  "screenshot_api": {
+    "enabled": true,
+    "port": 8766,
+    "endpoint": "http://127.0.0.1:8766/screenshot",
+    "autoload_added": true,
+    "note": "Screenshot API is available at http://127.0.0.1:8766/screenshot. Supports query params: max_width, max_height. Screenshots over 1MB will be saved to disk and return a file_path instead of base64 data."
+  }
+}
+```
+
+**Usage:**
+```bash
+# Start scene with screenshot API enabled
+curl -X POST http://localhost:8765 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tools/call",
+    "params": {
+      "name": "godot_game_play_scene",
+      "arguments": {"enable_screenshot_api": true}
+    },
+    "id": 1
+  }'
+```
+
+**Notes:**
+- The screenshot API autoload only runs during debug builds (not in exported games)
+- Screenshots larger than 1MB are automatically saved to disk at `user://mcp_screenshots/`
+- The autoload is injected into project.godot and persists until manually removed
+- Only runs when `OS.is_debug_build()` returns true
+
 ---
 
-### stop_scene
+### godot_game_get_screenshot
+
+Capture a screenshot from the running game via HTTP API. The game must be running with screenshot API enabled.
+
+**Parameters:**
+```json
+{
+  "max_width": 1280,      // Optional: Maximum width in pixels (default: 1280)
+  "max_height": 720,      // Optional: Maximum height in pixels (default: 720)
+  "port": 8766,           // Optional: Screenshot server port (default: 8766)
+  "save_to_disk": false   // Optional: Force save to disk and return file path (default: false)
+}
+```
+
+**Returns (small screenshot, <1MB and save_to_disk=false):**
+```json
+{
+  "success": true,
+  "format": "png",
+  "width": 1280,
+  "height": 720,
+  "original_size": {
+    "width": 1920,
+    "height": 1080
+  },
+  "size_bytes": 524288,
+  "data": "iVBORw0KGgoAAAANSUhEUgA..."  // Base64-encoded PNG
+}
+```
+
+**Returns (large screenshot ≥1MB OR save_to_disk=true):**
+```json
+{
+  "success": true,
+  "format": "png",
+  "width": 1920,
+  "height": 1080,
+  "original_size": {
+    "width": 1920,
+    "height": 1080
+  },
+  "size_bytes": 2097152,
+  "file_path": "/home/user/.local/share/godot/app_userdata/ProjectName/mcp_screenshots/screenshot_1234567890_1.png",
+  "note": "Screenshot saved to disk (exceeds 1MB limit)"  // or "Screenshot saved to disk (explicitly requested)"
+}
+```
+
+**Errors:**
+```json
+{
+  "error": "Failed to connect to game screenshot server. Is the game running with screenshot API enabled?",
+  "port": 8766
+}
+```
+
+**Usage:**
+```bash
+# Get game screenshot
+curl -X POST http://localhost:8765 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tools/call",
+    "params": {
+      "name": "godot_game_get_screenshot",
+      "arguments": {"max_width": 1280, "max_height": 720}
+    },
+    "id": 1
+  }'
+```
+
+**Workflow:**
+1. Start the scene with screenshot API: `godot_game_play_scene(enable_screenshot_api=true)`
+2. Wait for game to initialize (check with `godot_editor_get_output` if needed)
+3. Capture screenshots:
+   - For base64 data: `godot_game_get_screenshot(max_width=1280, max_height=720)`
+   - To save to disk: `godot_game_get_screenshot(max_width=1280, max_height=720, save_to_disk=true)`
+4. Stop the scene when done: `godot_game_stop_scene()`
+
+**Use save_to_disk=true when:**
+- You want a persistent file reference
+- You want to avoid large base64 strings in API responses
+- You plan to process the screenshot externally later
+- You're taking multiple screenshots for comparison
+
+---
+
+### godot_game_stop_scene
 
 Stop the running scene.
 
