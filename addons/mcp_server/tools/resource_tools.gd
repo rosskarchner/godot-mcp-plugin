@@ -24,7 +24,7 @@ func list_resources(args: Dictionary) -> Dictionary:
 		"resources": resources
 	}
 
-func get_screenshot(args: Dictionary = {}) -> Dictionary:
+func get_editor_screenshot(args: Dictionary = {}) -> Dictionary:
 	# Get parameters with defaults (optimized for <25k tokens)
 	var max_width: int = args.get("max_width", 1280)
 	var max_height: int = args.get("max_height", 720)
@@ -32,14 +32,14 @@ func get_screenshot(args: Dictionary = {}) -> Dictionary:
 	var region_y: int = args.get("region_y", 0)
 	var region_width: int = args.get("region_width", 0)
 	var region_height: int = args.get("region_height", 0)
-	
-	# Get the main viewport
+
+	# Get the editor viewport (not the running game)
 	var viewport := editor_interface.get_editor_viewport_3d(0)
 	if not viewport:
 		viewport = editor_interface.get_editor_viewport_2d()
-	
+
 	if not viewport:
-		return {"error": "No viewport available"}
+		return {"error": "No editor viewport available"}
 	
 	# Get the viewport texture
 	var image := viewport.get_texture().get_image()

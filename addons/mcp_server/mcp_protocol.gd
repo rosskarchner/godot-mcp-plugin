@@ -336,7 +336,7 @@ func _handle_tools_list(_params: Variant) -> Dictionary:
 
 	tools.append(_create_tool_schema(
 		"godot_editor_capture_viewport",
-		"Capture a screenshot of the current editor viewport as a base64-encoded PNG image. Use this to see what the scene looks like visually, debug rendering issues, verify node positions and appearance, or document the scene state. Captures the 2D or 3D editor viewport that's currently active. Default resolution is optimized to stay under 25,000 tokens.",
+		"Capture a screenshot of the EDITOR viewport (scene editing view) as a base64-encoded PNG image. Use this to see what the scene looks like in the editor, verify node positions during scene design, check visual layout while editing, or document scene structure. This captures the 2D or 3D editor viewport where you edit scenes. Default resolution is optimized to stay under 25,000 tokens.",
 		{
 			"type": "object",
 			"properties": {
@@ -817,7 +817,7 @@ func _handle_tools_call(params: Variant) -> Variant:
 		"godot_project_list_files":
 			result = resource_tools.list_resources(arguments)
 		"godot_editor_capture_viewport":
-			result = resource_tools.get_screenshot(arguments)
+			result = resource_tools.get_editor_screenshot(arguments)
 		"godot_game_play_scene":
 			result = resource_tools.run_scene(editor_plugin)
 		"godot_game_stop_scene":

@@ -7,6 +7,13 @@ extends RefCounted
 var editor_interface: EditorInterface
 var editor_plugin: EditorPlugin
 
+## Helper function to send input to the running game
+func _send_input_to_game(event: InputEvent) -> bool:
+	# In Godot 4, Input.parse_input_event() sends input to the running game
+	# This works when a scene is playing (F5/F6)
+	Input.parse_input_event(event)
+	return true
+
 func send_input_action(args: Dictionary) -> Variant:
 	"""Send an input action event (as if the player pressed a mapped action)."""
 	if not args.has("action_name"):
@@ -24,16 +31,16 @@ func send_input_action(args: Dictionary) -> Variant:
 	event.action = action_name
 	event.pressed = pressed
 	event.strength = strength
-	
-	# Parse the input event to the running scene
-	Input.parse_input_event(event)
+
+	# Send input to the running game
+	_send_input_to_game(event)
 	
 	return {
 		"success": true,
 		"action_name": action_name,
 		"pressed": pressed,
 		"strength": strength,
-		"message": "Input action sent"
+		"message": "Input action sent to running game (if any)"
 	}
 
 func send_key_event(args: Dictionary) -> Variant:
@@ -61,8 +68,9 @@ func send_key_event(args: Dictionary) -> Variant:
 	event.shift_pressed = shift
 	event.ctrl_pressed = ctrl
 	event.meta_pressed = meta
-	
-	Input.parse_input_event(event)
+
+	# Send input to the running game
+	_send_input_to_game(event)
 	
 	return {
 		"success": true,
@@ -70,7 +78,7 @@ func send_key_event(args: Dictionary) -> Variant:
 		"physical_keycode": physical_keycode,
 		"pressed": pressed,
 		"key_label": OS.get_keycode_string(keycode if keycode != 0 else physical_keycode),
-		"message": "Key event sent"
+		"message": "Key event sent to running game (if any)"
 	}
 
 func send_mouse_button_event(args: Dictionary) -> Variant:
@@ -99,15 +107,16 @@ func send_mouse_button_event(args: Dictionary) -> Variant:
 	event.shift_pressed = shift
 	event.ctrl_pressed = ctrl
 	event.meta_pressed = meta
-	
-	Input.parse_input_event(event)
+
+	# Send input to the running game
+	_send_input_to_game(event)
 	
 	return {
 		"success": true,
 		"button_index": button_index,
 		"pressed": pressed,
 		"position": {"x": position_x, "y": position_y},
-		"message": "Mouse button event sent"
+		"message": "Mouse button event sent to running game (if any)"
 	}
 
 func send_mouse_motion_event(args: Dictionary) -> Variant:
@@ -133,14 +142,15 @@ func send_mouse_motion_event(args: Dictionary) -> Variant:
 	event.shift_pressed = shift
 	event.ctrl_pressed = ctrl
 	event.meta_pressed = meta
-	
-	Input.parse_input_event(event)
+
+	# Send input to the running game
+	_send_input_to_game(event)
 	
 	return {
 		"success": true,
 		"position": {"x": position_x, "y": position_y},
 		"relative": {"x": relative_x, "y": relative_y},
-		"message": "Mouse motion event sent"
+		"message": "Mouse motion event sent to running game (if any)"
 	}
 
 func send_joypad_button_event(args: Dictionary) -> Variant:
@@ -158,15 +168,16 @@ func send_joypad_button_event(args: Dictionary) -> Variant:
 	event.pressed = pressed
 	event.pressure = pressure
 	event.device = device
-	
-	Input.parse_input_event(event)
+
+	# Send input to the running game
+	_send_input_to_game(event)
 	
 	return {
 		"success": true,
 		"button_index": button_index,
 		"pressed": pressed,
 		"device": device,
-		"message": "Joypad button event sent"
+		"message": "Joypad button event sent to running game (if any)"
 	}
 
 func send_joypad_motion_event(args: Dictionary) -> Variant:
@@ -184,15 +195,16 @@ func send_joypad_motion_event(args: Dictionary) -> Variant:
 	event.axis = axis
 	event.axis_value = axis_value
 	event.device = device
-	
-	Input.parse_input_event(event)
+
+	# Send input to the running game
+	_send_input_to_game(event)
 	
 	return {
 		"success": true,
 		"axis": axis,
 		"axis_value": axis_value,
 		"device": device,
-		"message": "Joypad motion event sent"
+		"message": "Joypad motion event sent to running game (if any)"
 	}
 
 func get_input_constants(args: Dictionary) -> Variant:
