@@ -309,21 +309,6 @@ func _handle_tools_list(_params: Variant) -> Dictionary:
 		}
 	))
 
-	tools.append(_create_tool_schema(
-		"godot_script_validate_code",
-		"Validate GDScript code syntax by attempting to compile it. Use this to check if code is syntactically correct before writing to files, test code snippets, or verify script compilation. Does NOT execute the code for security reasons - only validates syntax.",
-		{
-			"type": "object",
-			"properties": {
-				"code": {
-					"type": "string",
-					"description": "Complete GDScript source code to validate. Should include proper class structure with extends statement. Example: 'extends Node2D\\nfunc _ready():\\n\\tpass'"
-				}
-			},
-			"required": ["code"]
-		}
-	))
-	
 	# Resource operations
 	tools.append(_create_tool_schema(
 		"godot_project_list_files",
@@ -840,8 +825,6 @@ func _handle_tools_call(params: Variant) -> Variant:
 			result = script_tools.set_node_script(arguments)
 		"godot_script_read_source":
 			result = script_tools.get_script_source(arguments)
-		"godot_script_validate_code":
-			result = script_tools.execute_gdscript(arguments)
 
 		# Resource tools (new names)
 		"godot_project_list_files":

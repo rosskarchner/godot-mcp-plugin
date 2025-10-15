@@ -90,30 +90,6 @@ func get_script_source(args: Dictionary) -> Dictionary:
 		"source": source
 	}
 
-func execute_gdscript(args: Dictionary) -> Dictionary:
-	if not args.has("code"):
-		return {"error": "Missing required parameter: code"}
-	
-	var code: String = args.code
-	
-	# Create a GDScript instance and compile the code
-	var script := GDScript.new()
-	script.source_code = code
-	
-	var err := script.reload()
-	if err != OK:
-		return {"error": "Script compilation failed: " + error_string(err)}
-	
-	# Try to execute if there's a _run() method or similar
-	# Note: This is a simplified implementation - actual execution is limited
-	# for safety reasons
-	
-	return {
-		"success": true,
-		"warning": "Script compiled successfully. Direct execution is limited for safety.",
-		"message": "To run code, attach it to a node or use the Godot debugger."
-	}
-
 func _get_node_from_path(path: String) -> Node:
 	var edited_scene := editor_interface.get_edited_scene_root()
 	if not edited_scene:

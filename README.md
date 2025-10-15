@@ -165,14 +165,6 @@ Read the source code of a script file.
 **Arguments:**
 - `script_path`: Path to the script file
 
-#### `execute_gdscript`
-Execute arbitrary GDScript code (limited for safety).
-
-**Arguments:**
-- `code`: GDScript code to execute
-
-**⚠️ Security Warning**: This tool compiles and validates GDScript but does not execute arbitrary code for security reasons. Attach scripts to nodes for full execution.
-
 ### Resource Operations
 
 #### `list_resources`
