@@ -90,40 +90,94 @@ func _handle_request(conn: StreamPeerTCP) -> void:
 
 	# Parse HTTP request
 	var parsed := _parse_http_request(request_text)
-	
+
 	if parsed.is_empty():
 		_send_error_response(conn, 400, "Bad Request")
 		return
-	
+
+	# Validate Origin header for security (prevent DNS rebinding attacks)
+	# Only accept requests without Origin header (local tools) or from localhost
+	if parsed.headers.has("origin"):
+		var origin: String = parsed.headers["origin"]
+		if not _is_safe_origin(origin):
+			_send_error_response(conn, 403, "Forbidden: Invalid Origin")
+			return
+
 	# Handle OPTIONS request (CORS preflight)
 	if parsed.method == "OPTIONS":
 		_send_options_response(conn)
 		return
-	
+
+	# Handle GET request (SSE stream)
+	if parsed.method == "GET":
+		# Check if client accepts SSE
+		var accept: String = parsed.headers.get("accept", "") as String
+		if "text/event-stream" in accept:
+			# SSE not implemented yet, return 405
+			_send_error_response(conn, 405, "Method Not Allowed: SSE not implemented")
+		else:
+			_send_error_response(conn, 405, "Method Not Allowed")
+		return
+
 	# Only accept POST requests for MCP
 	if parsed.method != "POST":
 		_send_error_response(conn, 405, "Method Not Allowed")
 		return
-	
+
 	# Process MCP request
 	var response_body: String
-	
+
 	if parsed.body.is_empty():
 		response_body = _create_json_error(-32700, "Parse error: Empty request body")
 	else:
 		var json := JSON.new()
 		var parse_result := json.parse(parsed.body)
-		
+
 		if parse_result != OK:
 			response_body = _create_json_error(-32700, "Parse error: Invalid JSON")
 		else:
 			var request := json.data
 			# Process through MCP protocol
 			var result: Dictionary = mcp_protocol.handle_request(request)
+
+			# Check if this was a notification (no response needed)
+			if result.has("_notification") and result._notification:
+				_send_accepted_response(conn)
+				return
+
 			response_body = JSON.stringify(result)
-	
+			# Fix integer IDs that get serialized as floats (e.g., "1.0" -> "1")
+			response_body = _fix_json_integer_ids(response_body)
+
 	# Send response
 	_send_json_response(conn, response_body)
+
+func _fix_json_integer_ids(json_string: String) -> String:
+	# Fix JSON-RPC id field when it's an integer serialized as float
+	# Replaces patterns like "id":1.0 with "id":1
+	var regex := RegEx.new()
+	regex.compile('"id":(\\d+)\\.0')
+	return regex.sub(json_string, '"id":$1', true)
+
+func _is_safe_origin(origin: String) -> bool:
+	# Allow requests from localhost, 127.0.0.1, or null origin (local tools)
+	if origin == "null":
+		return true
+
+	var safe_patterns := [
+		"http://localhost",
+		"https://localhost",
+		"http://127.0.0.1",
+		"https://127.0.0.1",
+		"http://[::1]",
+		"https://[::1]"
+	]
+
+	for pattern in safe_patterns:
+		if origin.begins_with(pattern):
+			return true
+
+	return false
 
 func _parse_http_request(request_text: String) -> Dictionary:
 	var lines := request_text.split("\r\n")
@@ -177,7 +231,16 @@ func _send_json_response(conn: StreamPeerTCP, json_body: String) -> void:
 	response += _get_cors_headers()
 	response += "\r\n"
 	response += json_body
-	
+
+	conn.put_data(response.to_utf8_buffer())
+	conn.disconnect_from_host()
+
+func _send_accepted_response(conn: StreamPeerTCP) -> void:
+	var response := "HTTP/1.1 202 Accepted\r\n"
+	response += "Content-Length: 0\r\n"
+	response += _get_cors_headers()
+	response += "\r\n"
+
 	conn.put_data(response.to_utf8_buffer())
 	conn.disconnect_from_host()
 
@@ -195,10 +258,10 @@ func _send_error_response(conn: StreamPeerTCP, code: int, message: String) -> vo
 func _send_options_response(conn: StreamPeerTCP) -> void:
 	var response := "HTTP/1.1 204 No Content\r\n"
 	response += _get_cors_headers()
-	response += "Access-Control-Allow-Methods: POST, OPTIONS\r\n"
-	response += "Access-Control-Allow-Headers: Content-Type\r\n"
+	response += "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
+	response += "Access-Control-Allow-Headers: Content-Type, Accept\r\n"
 	response += "\r\n"
-	
+
 	conn.put_data(response.to_utf8_buffer())
 	conn.disconnect_from_host()
 

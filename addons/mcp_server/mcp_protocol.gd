@@ -42,26 +42,30 @@ func handle_request(request: Variant) -> Dictionary:
 	# Validate JSON-RPC 2.0 format
 	if not request is Dictionary:
 		return _create_error(-32600, "Invalid Request: Expected object", null)
-	
+
 	var req := request as Dictionary
-	
+
 	if not req.has("jsonrpc") or req.jsonrpc != "2.0":
 		return _create_error(-32600, "Invalid Request: Missing or invalid jsonrpc field", null)
-	
+
 	if not req.has("method"):
 		return _create_error(-32600, "Invalid Request: Missing method field", null)
-	
+
 	var id = req.get("id", null)
 	var method: String = req.method
 	var params = req.get("params", {})
-	
+	var is_notification := not req.has("id")
+
 	# Route to appropriate handler
 	var result: Variant
-	
+
 	match method:
 		"initialize":
 			result = _handle_initialize(params)
 			initialized = true
+		"initialized":
+			# Client notification after initialize - just acknowledge
+			return {"_notification": true}
 		"tools/list":
 			result = _handle_tools_list(params)
 		"tools/call":
@@ -71,12 +75,19 @@ func handle_request(request: Variant) -> Dictionary:
 		"resources/read":
 			result = _handle_resources_read(params)
 		_:
+			# For notifications, return special marker instead of error
+			if is_notification:
+				return {"_notification": true}
 			return _create_error(-32601, "Method not found: " + method, id)
-	
+
+	# If this is a notification, return special marker
+	if is_notification:
+		return {"_notification": true}
+
 	# Check for error result
 	if result is Dictionary and result.has("error"):
 		return _create_error(result.error.code, result.error.message, id)
-	
+
 	return _create_success(result, id)
 
 func _handle_initialize(_params: Variant) -> Dictionary:
@@ -999,7 +1010,7 @@ func _create_success(result: Variant, id: Variant) -> Dictionary:
 	return {
 		"jsonrpc": "2.0",
 		"result": result,
-		"id": id
+		"id": _normalize_id(id)
 	}
 
 func _create_error(code: int, message: String, id: Variant) -> Dictionary:
@@ -1009,8 +1020,16 @@ func _create_error(code: int, message: String, id: Variant) -> Dictionary:
 			"code": code,
 			"message": message
 		},
-		"id": id
+		"id": _normalize_id(id)
 	}
+
+# Normalize ID to preserve integer types (JSON parsers convert integers to floats)
+func _normalize_id(id: Variant) -> Variant:
+	if id is float:
+		# Check if this float represents an integer value
+		if floor(id) == id:
+			return int(id)
+	return id
 
 func _create_error_result(code: int, message: String) -> Dictionary:
 	return {
