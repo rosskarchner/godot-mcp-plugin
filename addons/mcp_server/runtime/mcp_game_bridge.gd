@@ -88,6 +88,8 @@ func _handle_request() -> void:
 	# Route the request
 	if method == "GET" and path.begins_with("/screenshot"):
 		_handle_screenshot_request(path)
+	elif method == "GET" and path.begins_with("/scene_tree"):
+		_handle_scene_tree_request(path)
 	elif method == "POST" and path.begins_with("/input"):
 		_handle_input_request(body)
 	else:
@@ -156,6 +158,52 @@ func _handle_screenshot_request(path: String) -> void:
 			"size_bytes": data_size,
 			"data": base64
 		})
+
+func _handle_scene_tree_request(path: String) -> void:
+	# Parse query parameters
+	var params := _parse_query_params(path)
+	var max_depth := int(params.get("max_depth", "10"))
+	
+	# Get the root of the running game's scene tree
+	var root := get_tree().root
+	if not root:
+		_send_error_response(500, "No scene tree available")
+		return
+	
+	# Build the tree structure
+	var tree := _build_node_tree(root, 0, max_depth)
+	
+	var response_data := {
+		"success": true,
+		"root": tree
+	}
+	
+	_send_json_response(response_data)
+
+func _build_node_tree(node: Node, current_depth: int, max_depth: int) -> Dictionary:
+	var result := {
+		"name": node.name,
+		"type": node.get_class(),
+		"path": str(node.get_path()),
+		"children": []
+	}
+	
+	# Add basic transform info for spatial nodes
+	if node is Node2D:
+		result["position"] = [node.position.x, node.position.y]
+		result["rotation"] = node.rotation
+		result["scale"] = [node.scale.x, node.scale.y]
+	elif node is Node3D:
+		result["position"] = [node.position.x, node.position.y, node.position.z]
+		result["rotation"] = [node.rotation.x, node.rotation.y, node.rotation.z]
+		result["scale"] = [node.scale.x, node.scale.y, node.scale.z]
+	
+	# Recursively add children if not at max depth
+	if current_depth < max_depth:
+		for child in node.get_children():
+			result.children.append(_build_node_tree(child, current_depth + 1, max_depth))
+	
+	return result
 
 func _handle_input_request(body: String) -> void:
 	# Parse JSON body

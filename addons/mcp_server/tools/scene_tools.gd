@@ -93,3 +93,4 @@ func _vector2_to_array(v: Vector2) -> Array:
 
 func _vector3_to_array(v: Vector3) -> Array:
 	return [v.x, v.y, v.z]
+

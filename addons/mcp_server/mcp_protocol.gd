@@ -335,54 +335,14 @@ func _handle_tools_list(_params: Variant) -> Dictionary:
 	))
 
 	tools.append(_create_tool_schema(
-		"godot_editor_capture_viewport",
-		"Capture a screenshot of the EDITOR viewport (scene editing view) as a base64-encoded PNG image. Use this to see what the scene looks like in the editor, verify node positions during scene design, check visual layout while editing, or document scene structure. This captures the 2D or 3D editor viewport where you edit scenes. Default resolution is optimized to stay under 25,000 tokens.",
-		{
-			"type": "object",
-			"properties": {
-				"max_width": {
-					"type": "integer",
-					"description": "Maximum width in pixels. Image will be downscaled proportionally if larger. Default: 1280",
-					"default": 1280
-				},
-				"max_height": {
-					"type": "integer",
-					"description": "Maximum height in pixels. Image will be downscaled proportionally if larger. Default: 720",
-					"default": 720
-				},
-				"region_x": {
-					"type": "integer",
-					"description": "X coordinate of the top-left corner of the region to capture. Default: 0 (full viewport)",
-					"default": 0
-				},
-				"region_y": {
-					"type": "integer",
-					"description": "Y coordinate of the top-left corner of the region to capture. Default: 0 (full viewport)",
-					"default": 0
-				},
-				"region_width": {
-					"type": "integer",
-					"description": "Width of the region to capture in pixels. Default: 0 (full viewport width)",
-					"default": 0
-				},
-				"region_height": {
-					"type": "integer",
-					"description": "Height of the region to capture in pixels. Default: 0 (full viewport height)",
-					"default": 0
-				}
-			}
-		}
-	))
-
-	tools.append(_create_tool_schema(
 		"godot_game_play_scene",
-		"Start running the currently open scene in play mode. Use this to test scene functionality, verify game behavior, check physics interactions, or see scripts in action. Optionally enable a screenshot API server that runs inside the game for capturing screenshots via HTTP. Equivalent to pressing F6 or the 'Play Scene' button in the editor.",
+		"Start running the currently open scene in play mode. Use this to test scene functionality, verify game behavior, check physics interactions, or see scripts in action. Optionally enable a runtime API server that runs inside the game for capturing screenshots and inspecting the scene tree via HTTP. Equivalent to pressing F6 or the 'Play Scene' button in the editor.",
 		{
 			"type": "object",
 			"properties": {
-				"enable_screenshot_api": {
+				"enable_runtime_api": {
 					"type": "boolean",
-					"description": "If true, injects and enables an autoload that creates an HTTP API (port 8766) for capturing screenshots of the running game. The autoload only runs during debugging (not in exports). Screenshots over 1MB are saved to disk. Default: false",
+					"description": "If true, injects and enables an autoload that creates an HTTP API (port 8766) for capturing screenshots and retrieving the runtime scene tree. The autoload only runs during debugging (not in exports). Screenshots over 1MB are saved to disk. Default: false",
 					"default": false
 				}
 			}
@@ -396,8 +356,28 @@ func _handle_tools_list(_params: Variant) -> Dictionary:
 	))
 
 	tools.append(_create_tool_schema(
+		"godot_game_get_scene_tree",
+		"Get the scene tree structure of the RUNNING GAME. The game must be running with runtime API enabled (use godot_game_play_scene with enable_runtime_api=true first). This captures the actual runtime scene tree, which may differ from the editor scene due to instantiated nodes, autoloads, and runtime modifications.",
+		{
+			"type": "object",
+			"properties": {
+				"max_depth": {
+					"type": "integer",
+					"description": "Maximum depth to traverse in the node hierarchy. Default: 10",
+					"default": 10
+				},
+				"port": {
+					"type": "integer",
+					"description": "Port number where the game screenshot server is running. Default: 8766",
+					"default": 8766
+				}
+			}
+		}
+	))
+
+	tools.append(_create_tool_schema(
 		"godot_game_get_screenshot",
-		"Capture a screenshot from the RUNNING GAME (not the editor) via HTTP API. The game must be running with screenshot API enabled (use godot_game_play_scene with enable_screenshot_api=true first). Returns a base64-encoded PNG image by default, or a file path if the image exceeds 1MB or if save_to_disk is explicitly requested. This captures what the player sees during gameplay, not the editor viewport.",
+		"Capture a screenshot from the RUNNING GAME (not the editor) via HTTP API. The game must be running with runtime API enabled (use godot_game_play_scene with enable_runtime_api=true first). Returns a base64-encoded PNG image by default, or a file path if the image exceeds 1MB or if save_to_disk is explicitly requested. This captures what the player sees during gameplay, not the editor viewport.",
 		{
 			"type": "object",
 			"properties": {
@@ -855,12 +835,12 @@ func _handle_tools_call(params: Variant) -> Variant:
 		# Resource tools (new names)
 		"godot_project_list_files":
 			result = resource_tools.list_resources(arguments)
-		"godot_editor_capture_viewport":
-			result = resource_tools.get_editor_screenshot(arguments)
 		"godot_game_play_scene":
 			result = resource_tools.run_scene(editor_plugin, arguments)
 		"godot_game_stop_scene":
 			result = resource_tools.stop_scene(editor_plugin)
+		"godot_game_get_scene_tree":
+			result = resource_tools.get_game_scene_tree(arguments)
 		"godot_game_get_screenshot":
 			result = resource_tools.get_game_screenshot(arguments)
 		

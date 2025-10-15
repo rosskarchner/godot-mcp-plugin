@@ -24,88 +24,17 @@ func list_resources(args: Dictionary) -> Dictionary:
 		"resources": resources
 	}
 
-func get_editor_screenshot(args: Dictionary = {}) -> Dictionary:
-	# Get parameters with defaults (optimized for <25k tokens)
-	var max_width: int = args.get("max_width", 1280)
-	var max_height: int = args.get("max_height", 720)
-	var region_x: int = args.get("region_x", 0)
-	var region_y: int = args.get("region_y", 0)
-	var region_width: int = args.get("region_width", 0)
-	var region_height: int = args.get("region_height", 0)
-
-	# Get the editor viewport (not the running game)
-	var viewport := editor_interface.get_editor_viewport_3d(0)
-	if not viewport:
-		viewport = editor_interface.get_editor_viewport_2d()
-
-	if not viewport:
-		return {"error": "No editor viewport available"}
-	
-	# Get the viewport texture
-	var image := viewport.get_texture().get_image()
-	
-	if not image:
-		return {"error": "Failed to capture viewport image"}
-	
-	var original_width := image.get_width()
-	var original_height := image.get_height()
-	
-	# Apply region cropping if specified
-	if region_width > 0 and region_height > 0:
-		# Validate region bounds
-		if region_x < 0 or region_y < 0 or \
-		   region_x + region_width > original_width or \
-		   region_y + region_height > original_height:
-			return {
-				"error": "Region out of bounds",
-				"viewport_size": {"width": original_width, "height": original_height},
-				"requested_region": {
-					"x": region_x, 
-					"y": region_y, 
-					"width": region_width, 
-					"height": region_height
-				}
-			}
-		
-		# Crop the image to the specified region
-		var cropped := Image.create(region_width, region_height, false, image.get_format())
-		cropped.blit_rect(image, Rect2i(region_x, region_y, region_width, region_height), Vector2i(0, 0))
-		image = cropped
-	
-	# Apply resolution scaling if needed
-	var current_width := image.get_width()
-	var current_height := image.get_height()
-	
-	if current_width > max_width or current_height > max_height:
-		# Calculate scale factor to fit within max dimensions while maintaining aspect ratio
-		var scale_x := float(max_width) / float(current_width)
-		var scale_y := float(max_height) / float(current_height)
-		var scale := min(scale_x, scale_y)
-		
-		var new_width := int(current_width * scale)
-		var new_height := int(current_height * scale)
-		
-		image.resize(new_width, new_height, Image.INTERPOLATE_LANCZOS)
-	
-	# Convert to PNG and encode as base64
-	var png_data := image.save_png_to_buffer()
-	var base64 := Marshalls.raw_to_base64(png_data)
-	
-	return {
-		"success": true,
-		"format": "png",
-		"width": image.get_width(),
-		"height": image.get_height(),
-		"original_size": {"width": original_width, "height": original_height},
-		"data": base64
-	}
-
 func run_scene(editor_plugin: EditorPlugin, args: Dictionary = {}) -> Dictionary:
 	# Handle autoload injection if requested
-	var enable_screenshot_api: bool = args.get("enable_screenshot_api", false)
+	var enable_runtime_api: bool = args.get("enable_runtime_api", false)
+	
+	# Support old parameter name for backwards compatibility
+	if not enable_runtime_api and args.has("enable_screenshot_api"):
+		enable_runtime_api = args.get("enable_screenshot_api", false)
+	
 	var autoload_enabled := false
 
-	if enable_screenshot_api:
+	if enable_runtime_api:
 		# Add the game bridge autoload
 		var autoload_path := "res://addons/mcp_server/runtime/mcp_game_bridge.gd"
 		var autoload_name := "MCPGameBridge"
@@ -129,14 +58,15 @@ func run_scene(editor_plugin: EditorPlugin, args: Dictionary = {}) -> Dictionary
 		"message": "Scene started"
 	}
 
-	if enable_screenshot_api:
-		result["screenshot_api"] = {
+	if enable_runtime_api:
+		result["runtime_api"] = {
 			"enabled": true,
 			"port": 8766,
 			"screenshot_endpoint": "http://127.0.0.1:8766/screenshot",
+			"scene_tree_endpoint": "http://127.0.0.1:8766/scene_tree",
 			"input_endpoint": "http://127.0.0.1:8766/input",
 			"autoload_added": autoload_enabled,
-			"note": "Game bridge API is available. Screenshot endpoint supports query params: max_width, max_height. Input endpoint accepts POST with JSON body containing event details."
+			"note": "Game bridge API is available. Screenshot endpoint supports query params: max_width, max_height. Scene tree endpoint supports: max_depth. Input endpoint accepts POST with JSON body containing event details."
 		}
 
 	return result
@@ -149,6 +79,70 @@ func stop_scene(editor_plugin: EditorPlugin) -> Dictionary:
 		"success": true,
 		"message": "Scene stopped"
 	}
+
+func get_game_scene_tree(args: Dictionary = {}) -> Dictionary:
+	var max_depth: int = args.get("max_depth", 10)
+	var port: int = args.get("port", 8766)
+	
+	# Make HTTP request to the game bridge
+	var http := HTTPClient.new()
+	var err := http.connect_to_host("127.0.0.1", port)
+	
+	if err != OK:
+		return {"error": "Failed to connect to game bridge. Is the game running with runtime API enabled?"}
+	
+	# Wait for connection
+	var timeout := 2.0
+	var elapsed := 0.0
+	while http.get_status() == HTTPClient.STATUS_CONNECTING or http.get_status() == HTTPClient.STATUS_RESOLVING:
+		http.poll()
+		OS.delay_msec(10)
+		elapsed += 0.01
+		if elapsed > timeout:
+			return {"error": "Connection timeout. Is the game running?"}
+	
+	if http.get_status() != HTTPClient.STATUS_CONNECTED:
+		return {"error": "Failed to connect to game bridge"}
+	
+	# Build query string
+	var query := "?max_depth=" + str(max_depth)
+	
+	# Make request - need to provide headers
+	var headers := ["Host: 127.0.0.1:" + str(port), "Connection: close"]
+	err = http.request(HTTPClient.METHOD_GET, "/scene_tree" + query, headers)
+	if err != OK:
+		return {"error": "Failed to send request"}
+	
+	# Wait for response
+	while http.get_status() == HTTPClient.STATUS_REQUESTING:
+		http.poll()
+		OS.delay_msec(10)
+	
+	if http.get_status() != HTTPClient.STATUS_BODY and http.get_status() != HTTPClient.STATUS_CONNECTED:
+		return {"error": "Request failed with status: " + str(http.get_status())}
+	
+	# Check response code
+	if http.get_response_code() != 200:
+		return {"error": "HTTP error: " + str(http.get_response_code())}
+	
+	# Read response body
+	var response_body := PackedByteArray()
+	while http.get_status() == HTTPClient.STATUS_BODY:
+		http.poll()
+		var chunk := http.read_response_body_chunk()
+		if chunk.size() > 0:
+			response_body.append_array(chunk)
+		else:
+			OS.delay_msec(10)
+	
+	# Parse JSON response
+	var json := JSON.new()
+	var parse_err := json.parse(response_body.get_string_from_utf8())
+	
+	if parse_err != OK:
+		return {"error": "Failed to parse response: " + json.get_error_message()}
+	
+	return json.data
 
 func get_game_screenshot(args: Dictionary = {}) -> Dictionary:
 	# Get parameters with defaults
