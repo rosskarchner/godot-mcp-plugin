@@ -106,9 +106,9 @@ func run_scene(editor_plugin: EditorPlugin, args: Dictionary = {}) -> Dictionary
 	var autoload_enabled := false
 
 	if enable_screenshot_api:
-		# Add the screenshot server autoload
-		var autoload_path := "res://addons/mcp_server/runtime/game_screenshot_server.gd"
-		var autoload_name := "MCPGameScreenshotServer"
+		# Add the game bridge autoload
+		var autoload_path := "res://addons/mcp_server/runtime/mcp_game_bridge.gd"
+		var autoload_name := "MCPGameBridge"
 
 		# Check if autoload already exists
 		if not ProjectSettings.has_setting("autoload/" + autoload_name):
@@ -133,9 +133,10 @@ func run_scene(editor_plugin: EditorPlugin, args: Dictionary = {}) -> Dictionary
 		result["screenshot_api"] = {
 			"enabled": true,
 			"port": 8766,
-			"endpoint": "http://127.0.0.1:8766/screenshot",
+			"screenshot_endpoint": "http://127.0.0.1:8766/screenshot",
+			"input_endpoint": "http://127.0.0.1:8766/input",
 			"autoload_added": autoload_enabled,
-			"note": "Screenshot API is available at http://127.0.0.1:8766/screenshot. Supports query params: max_width, max_height. Screenshots over 1MB will be saved to disk and return a file_path instead of base64 data."
+			"note": "Game bridge API is available. Screenshot endpoint supports query params: max_width, max_height. Input endpoint accepts POST with JSON body containing event details."
 		}
 
 	return result

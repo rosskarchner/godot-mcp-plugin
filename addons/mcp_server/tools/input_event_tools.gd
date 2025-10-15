@@ -7,116 +7,198 @@ extends RefCounted
 var editor_interface: EditorInterface
 var editor_plugin: EditorPlugin
 
-## Helper function to send input to the running game
-func _send_input_to_game(event: InputEvent) -> bool:
-	# In Godot 4, Input.parse_input_event() sends input to the running game
-	# This works when a scene is playing (F5/F6)
-	Input.parse_input_event(event)
-	return true
+## Helper function to send input to the running game via HTTP
+func _send_input_via_http(event_data: Dictionary) -> Dictionary:
+	# Send input via HTTP to the game bridge server running in the game process
+	var port := 8766
+	var http := HTTPClient.new()
+	var err := http.connect_to_host("127.0.0.1", port)
+
+	if err != OK:
+		return {
+			"error": "Failed to connect to game bridge server. Is the game running?",
+			"details": error_string(err)
+		}
+
+	# Wait for connection
+	var timeout := 30  # 3 seconds timeout (100ms per poll * 30)
+	var poll_count := 0
+
+	while http.get_status() == HTTPClient.STATUS_CONNECTING or http.get_status() == HTTPClient.STATUS_RESOLVING:
+		http.poll()
+		OS.delay_msec(100)
+		poll_count += 1
+		if poll_count > timeout:
+			return {"error": "Connection timeout. Is the game running with the game bridge enabled?"}
+
+	if http.get_status() != HTTPClient.STATUS_CONNECTED:
+		return {
+			"error": "Failed to connect to game bridge server",
+			"status": http.get_status()
+		}
+
+	# Prepare JSON body
+	var json_body := JSON.stringify(event_data)
+	var headers := [
+		"Content-Type: application/json",
+		"Content-Length: " + str(json_body.length())
+	]
+
+	# Send POST request
+	err = http.request(HTTPClient.METHOD_POST, "/input", headers, json_body)
+
+	if err != OK:
+		return {"error": "Failed to send request: " + error_string(err)}
+
+	# Wait for response
+	poll_count = 0
+	while http.get_status() == HTTPClient.STATUS_REQUESTING:
+		http.poll()
+		OS.delay_msec(100)
+		poll_count += 1
+		if poll_count > timeout:
+			return {"error": "Request timeout"}
+
+	if not http.has_response():
+		return {"error": "No response from server"}
+
+	# Read response
+	var response_body := PackedByteArray()
+	while http.get_status() == HTTPClient.STATUS_BODY:
+		http.poll()
+		var chunk := http.read_response_body_chunk()
+		if chunk.size() == 0:
+			OS.delay_msec(100)
+		else:
+			response_body.append_array(chunk)
+
+	# Parse JSON response
+	var json := JSON.new()
+	var parse_err := json.parse(response_body.get_string_from_utf8())
+
+	if parse_err != OK:
+		return {"error": "Failed to parse response: " + json.get_error_message()}
+
+	return json.data if json.data is Dictionary else {"error": "Invalid response format"}
 
 func send_input_action(args: Dictionary) -> Variant:
 	"""Send an input action event (as if the player pressed a mapped action)."""
 	if not args.has("action_name"):
 		return {"error": "Missing required argument: action_name"}
-	
+
 	var action_name: String = args.action_name
 	var pressed: bool = args.get("pressed", true)
 	var strength: float = args.get("strength", 1.0)
-	
+
 	if not InputMap.has_action(action_name):
 		return {"error": "Action not found: " + action_name}
-	
-	# Create an input action event
-	var event := InputEventAction.new()
-	event.action = action_name
-	event.pressed = pressed
-	event.strength = strength
 
-	# Send input to the running game
-	_send_input_to_game(event)
-	
+	# Send via HTTP to game bridge
+	var event_data := {
+		"event_type": "action",
+		"action_name": action_name,
+		"pressed": pressed,
+		"strength": strength
+	}
+
+	var result := _send_input_via_http(event_data)
+
+	if result.has("error"):
+		return result
+
 	return {
 		"success": true,
 		"action_name": action_name,
 		"pressed": pressed,
 		"strength": strength,
-		"message": "Input action sent to running game (if any)"
+		"message": "Input action sent to running game"
 	}
 
 func send_key_event(args: Dictionary) -> Variant:
 	"""Send a keyboard key event."""
 	if not args.has("keycode") and not args.has("physical_keycode"):
 		return {"error": "Missing required argument: keycode or physical_keycode"}
-	
+
 	var keycode: int = args.get("keycode", 0)
 	var physical_keycode: int = args.get("physical_keycode", 0)
 	var pressed: bool = args.get("pressed", true)
 	var echo: bool = args.get("echo", false)
-	
+
 	# Modifiers
 	var alt: bool = args.get("alt_pressed", false)
 	var shift: bool = args.get("shift_pressed", false)
 	var ctrl: bool = args.get("ctrl_pressed", false)
 	var meta: bool = args.get("meta_pressed", false)
-	
-	var event := InputEventKey.new()
-	event.keycode = keycode
-	event.physical_keycode = physical_keycode
-	event.pressed = pressed
-	event.echo = echo
-	event.alt_pressed = alt
-	event.shift_pressed = shift
-	event.ctrl_pressed = ctrl
-	event.meta_pressed = meta
 
-	# Send input to the running game
-	_send_input_to_game(event)
-	
+	# Send via HTTP to game bridge
+	var event_data := {
+		"event_type": "key",
+		"keycode": keycode,
+		"physical_keycode": physical_keycode,
+		"pressed": pressed,
+		"echo": echo,
+		"alt_pressed": alt,
+		"shift_pressed": shift,
+		"ctrl_pressed": ctrl,
+		"meta_pressed": meta
+	}
+
+	var result := _send_input_via_http(event_data)
+
+	if result.has("error"):
+		return result
+
 	return {
 		"success": true,
 		"keycode": keycode,
 		"physical_keycode": physical_keycode,
 		"pressed": pressed,
 		"key_label": OS.get_keycode_string(keycode if keycode != 0 else physical_keycode),
-		"message": "Key event sent to running game (if any)"
+		"message": "Key event sent to running game"
 	}
 
 func send_mouse_button_event(args: Dictionary) -> Variant:
 	"""Send a mouse button event."""
 	if not args.has("button_index"):
 		return {"error": "Missing required argument: button_index"}
-	
+
 	var button_index: int = args.button_index
 	var pressed: bool = args.get("pressed", true)
 	var position_x: float = args.get("position_x", 0.0)
 	var position_y: float = args.get("position_y", 0.0)
 	var double_click: bool = args.get("double_click", false)
-	
+
 	# Modifiers
 	var alt: bool = args.get("alt_pressed", false)
 	var shift: bool = args.get("shift_pressed", false)
 	var ctrl: bool = args.get("ctrl_pressed", false)
 	var meta: bool = args.get("meta_pressed", false)
-	
-	var event := InputEventMouseButton.new()
-	event.button_index = button_index
-	event.pressed = pressed
-	event.position = Vector2(position_x, position_y)
-	event.double_click = double_click
-	event.alt_pressed = alt
-	event.shift_pressed = shift
-	event.ctrl_pressed = ctrl
-	event.meta_pressed = meta
 
-	# Send input to the running game
-	_send_input_to_game(event)
-	
+	# Send via HTTP to game bridge
+	var event_data := {
+		"event_type": "mouse_button",
+		"button_index": button_index,
+		"pressed": pressed,
+		"position_x": position_x,
+		"position_y": position_y,
+		"double_click": double_click,
+		"alt_pressed": alt,
+		"shift_pressed": shift,
+		"ctrl_pressed": ctrl,
+		"meta_pressed": meta
+	}
+
+	var result := _send_input_via_http(event_data)
+
+	if result.has("error"):
+		return result
+
 	return {
 		"success": true,
 		"button_index": button_index,
 		"pressed": pressed,
 		"position": {"x": position_x, "y": position_y},
-		"message": "Mouse button event sent to running game (if any)"
+		"message": "Mouse button event sent to running game"
 	}
 
 func send_mouse_motion_event(args: Dictionary) -> Variant:
@@ -127,57 +209,70 @@ func send_mouse_motion_event(args: Dictionary) -> Variant:
 	var relative_y: float = args.get("relative_y", 0.0)
 	var velocity_x: float = args.get("velocity_x", 0.0)
 	var velocity_y: float = args.get("velocity_y", 0.0)
-	
+
 	# Modifiers
 	var alt: bool = args.get("alt_pressed", false)
 	var shift: bool = args.get("shift_pressed", false)
 	var ctrl: bool = args.get("ctrl_pressed", false)
 	var meta: bool = args.get("meta_pressed", false)
-	
-	var event := InputEventMouseMotion.new()
-	event.position = Vector2(position_x, position_y)
-	event.relative = Vector2(relative_x, relative_y)
-	event.velocity = Vector2(velocity_x, velocity_y)
-	event.alt_pressed = alt
-	event.shift_pressed = shift
-	event.ctrl_pressed = ctrl
-	event.meta_pressed = meta
 
-	# Send input to the running game
-	_send_input_to_game(event)
-	
+	# Send via HTTP to game bridge
+	var event_data := {
+		"event_type": "mouse_motion",
+		"position_x": position_x,
+		"position_y": position_y,
+		"relative_x": relative_x,
+		"relative_y": relative_y,
+		"velocity_x": velocity_x,
+		"velocity_y": velocity_y,
+		"alt_pressed": alt,
+		"shift_pressed": shift,
+		"ctrl_pressed": ctrl,
+		"meta_pressed": meta
+	}
+
+	var result := _send_input_via_http(event_data)
+
+	if result.has("error"):
+		return result
+
 	return {
 		"success": true,
 		"position": {"x": position_x, "y": position_y},
 		"relative": {"x": relative_x, "y": relative_y},
-		"message": "Mouse motion event sent to running game (if any)"
+		"message": "Mouse motion event sent to running game"
 	}
 
 func send_joypad_button_event(args: Dictionary) -> Variant:
 	"""Send a joypad button event."""
 	if not args.has("button_index"):
 		return {"error": "Missing required argument: button_index"}
-	
+
 	var button_index: int = args.button_index
 	var pressed: bool = args.get("pressed", true)
 	var pressure: float = args.get("pressure", 1.0)
 	var device: int = args.get("device", 0)
-	
-	var event := InputEventJoypadButton.new()
-	event.button_index = button_index
-	event.pressed = pressed
-	event.pressure = pressure
-	event.device = device
 
-	# Send input to the running game
-	_send_input_to_game(event)
-	
+	# Send via HTTP to game bridge
+	var event_data := {
+		"event_type": "joypad_button",
+		"button_index": button_index,
+		"pressed": pressed,
+		"pressure": pressure,
+		"device": device
+	}
+
+	var result := _send_input_via_http(event_data)
+
+	if result.has("error"):
+		return result
+
 	return {
 		"success": true,
 		"button_index": button_index,
 		"pressed": pressed,
 		"device": device,
-		"message": "Joypad button event sent to running game (if any)"
+		"message": "Joypad button event sent to running game"
 	}
 
 func send_joypad_motion_event(args: Dictionary) -> Variant:
@@ -186,25 +281,30 @@ func send_joypad_motion_event(args: Dictionary) -> Variant:
 		return {"error": "Missing required argument: axis"}
 	if not args.has("axis_value"):
 		return {"error": "Missing required argument: axis_value"}
-	
+
 	var axis: int = args.axis
 	var axis_value: float = args.axis_value
 	var device: int = args.get("device", 0)
-	
-	var event := InputEventJoypadMotion.new()
-	event.axis = axis
-	event.axis_value = axis_value
-	event.device = device
 
-	# Send input to the running game
-	_send_input_to_game(event)
-	
+	# Send via HTTP to game bridge
+	var event_data := {
+		"event_type": "joypad_motion",
+		"axis": axis,
+		"axis_value": axis_value,
+		"device": device
+	}
+
+	var result := _send_input_via_http(event_data)
+
+	if result.has("error"):
+		return result
+
 	return {
 		"success": true,
 		"axis": axis,
 		"axis_value": axis_value,
 		"device": device,
-		"message": "Joypad motion event sent to running game (if any)"
+		"message": "Joypad motion event sent to running game"
 	}
 
 func get_input_constants(args: Dictionary) -> Variant:

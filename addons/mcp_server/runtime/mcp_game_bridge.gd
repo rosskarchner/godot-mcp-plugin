@@ -1,8 +1,12 @@
 extends Node
 
-## Game Screenshot HTTP Server
+## MCP Game Bridge HTTP Server
 ##
-## This autoload provides an HTTP API for capturing screenshots of the running game.
+## This autoload provides an HTTP API for interacting with the running game.
+## Features:
+## - Screenshots: GET /screenshot (with max_width, max_height, save_to_disk params)
+## - Input Events: POST /input (JSON body with event details)
+##
 ## It only runs when the game is being debugged (not in exported builds).
 ## Screenshots larger than 1MB are written to disk instead of returned directly.
 
@@ -32,9 +36,9 @@ func _ready() -> void:
 
 	if err == OK:
 		is_running = true
-		print("[MCP] Game screenshot server started on port ", DEFAULT_PORT)
+		print("[MCP] Game bridge server started on port ", DEFAULT_PORT)
 	else:
-		push_error("[MCP] Failed to start game screenshot server: " + error_string(err))
+		push_error("[MCP] Failed to start game bridge server: " + error_string(err))
 		queue_free()
 
 func _process(_delta: float) -> void:
@@ -75,9 +79,17 @@ func _handle_request() -> void:
 	var method := request_line[0]
 	var path := request_line[1]
 
+	# Extract body for POST requests
+	var body := ""
+	var body_start_idx := request_text.find("\r\n\r\n")
+	if body_start_idx != -1:
+		body = request_text.substr(body_start_idx + 4)
+
 	# Route the request
 	if method == "GET" and path.begins_with("/screenshot"):
 		_handle_screenshot_request(path)
+	elif method == "POST" and path.begins_with("/input"):
+		_handle_input_request(body)
 	else:
 		_send_error_response(404, "Not Found")
 
@@ -145,6 +157,112 @@ func _handle_screenshot_request(path: String) -> void:
 			"data": base64
 		})
 
+func _handle_input_request(body: String) -> void:
+	# Parse JSON body
+	var json := JSON.new()
+	var parse_err := json.parse(body)
+
+	if parse_err != OK:
+		_send_error_response(400, "Invalid JSON: " + json.get_error_message())
+		return
+
+	var data = json.data
+	if not data is Dictionary:
+		_send_error_response(400, "Expected JSON object")
+		return
+
+	var event_type: String = data.get("event_type", "")
+
+	# Create the appropriate event based on type
+	var event: InputEvent = null
+
+	match event_type:
+		"action":
+			event = _create_action_event(data)
+		"key":
+			event = _create_key_event(data)
+		"mouse_button":
+			event = _create_mouse_button_event(data)
+		"mouse_motion":
+			event = _create_mouse_motion_event(data)
+		"joypad_button":
+			event = _create_joypad_button_event(data)
+		"joypad_motion":
+			event = _create_joypad_motion_event(data)
+		_:
+			_send_error_response(400, "Unknown event_type: " + event_type)
+			return
+
+	if not event:
+		_send_error_response(400, "Failed to create event")
+		return
+
+	# Send the event to the running game
+	Input.parse_input_event(event)
+
+	_send_json_response({
+		"success": true,
+		"event_type": event_type,
+		"message": "Input event sent to game"
+	})
+
+func _create_action_event(data: Dictionary) -> InputEventAction:
+	var event := InputEventAction.new()
+	event.action = data.get("action_name", "")
+	event.pressed = data.get("pressed", true)
+	event.strength = data.get("strength", 1.0)
+	return event
+
+func _create_key_event(data: Dictionary) -> InputEventKey:
+	var event := InputEventKey.new()
+	event.keycode = data.get("keycode", 0)
+	event.physical_keycode = data.get("physical_keycode", 0)
+	event.pressed = data.get("pressed", true)
+	event.echo = data.get("echo", false)
+	event.alt_pressed = data.get("alt_pressed", false)
+	event.shift_pressed = data.get("shift_pressed", false)
+	event.ctrl_pressed = data.get("ctrl_pressed", false)
+	event.meta_pressed = data.get("meta_pressed", false)
+	return event
+
+func _create_mouse_button_event(data: Dictionary) -> InputEventMouseButton:
+	var event := InputEventMouseButton.new()
+	event.button_index = data.get("button_index", 1)
+	event.pressed = data.get("pressed", true)
+	event.position = Vector2(data.get("position_x", 0.0), data.get("position_y", 0.0))
+	event.double_click = data.get("double_click", false)
+	event.alt_pressed = data.get("alt_pressed", false)
+	event.shift_pressed = data.get("shift_pressed", false)
+	event.ctrl_pressed = data.get("ctrl_pressed", false)
+	event.meta_pressed = data.get("meta_pressed", false)
+	return event
+
+func _create_mouse_motion_event(data: Dictionary) -> InputEventMouseMotion:
+	var event := InputEventMouseMotion.new()
+	event.position = Vector2(data.get("position_x", 0.0), data.get("position_y", 0.0))
+	event.relative = Vector2(data.get("relative_x", 0.0), data.get("relative_y", 0.0))
+	event.velocity = Vector2(data.get("velocity_x", 0.0), data.get("velocity_y", 0.0))
+	event.alt_pressed = data.get("alt_pressed", false)
+	event.shift_pressed = data.get("shift_pressed", false)
+	event.ctrl_pressed = data.get("ctrl_pressed", false)
+	event.meta_pressed = data.get("meta_pressed", false)
+	return event
+
+func _create_joypad_button_event(data: Dictionary) -> InputEventJoypadButton:
+	var event := InputEventJoypadButton.new()
+	event.button_index = data.get("button_index", 0)
+	event.pressed = data.get("pressed", true)
+	event.pressure = data.get("pressure", 1.0)
+	event.device = data.get("device", 0)
+	return event
+
+func _create_joypad_motion_event(data: Dictionary) -> InputEventJoypadMotion:
+	var event := InputEventJoypadMotion.new()
+	event.axis = data.get("axis", 0)
+	event.axis_value = data.get("axis_value", 0.0)
+	event.device = data.get("device", 0)
+	return event
+
 func _save_screenshot_to_disk(png_data: PackedByteArray) -> String:
 	temp_screenshot_counter += 1
 	var timestamp := Time.get_unix_time_from_system()
@@ -211,4 +329,4 @@ func _exit_tree() -> void:
 	if client_connection:
 		client_connection.disconnect_from_host()
 
-	print("[MCP] Game screenshot server stopped")
+	print("[MCP] Game bridge server stopped")
