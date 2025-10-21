@@ -18,7 +18,21 @@ A complete Model Context Protocol (MCP) server implementation for Godot Engine 4
 - **CORS Support**: Built-in CORS headers for web-based clients
 - **Configurable**: Editor settings for port, authentication, limits
 
+## Quick Start
+
+The easiest way to get started is with the included example project:
+
+```bash
+# From the repository root:
+./setup_example.sh
+# Then open ./example_project in Godot Engine
+```
+
+The example project comes with the plugin pre-configured and ready to use.
+
 ## Installation
+
+For your own projects:
 
 1. Copy the `addons/mcp_server/` directory into your Godot project's `addons/` folder
 2. Open your project in Godot Editor

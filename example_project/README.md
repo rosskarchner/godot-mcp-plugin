@@ -4,9 +4,15 @@ This is a minimal Godot project configured to use the MCP Server plugin.
 
 ## Setup
 
-1. Open this project in Godot Engine 4.x
-2. The MCP Server plugin should be automatically enabled
-3. The server will start on port 8765 (check the Output console)
+1. From the repository root, run the setup script to install the plugin:
+   ```bash
+   ./setup_example.sh
+   ```
+   This copies the MCP Server plugin into this project's `addons/` directory.
+
+2. Open this project in Godot Engine 4.x
+3. The MCP Server plugin should be automatically enabled
+4. The server will start on port 8765 (check the Output console)
 
 ## Testing the Plugin
 
