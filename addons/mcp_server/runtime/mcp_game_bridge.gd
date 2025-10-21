@@ -246,13 +246,28 @@ func _handle_input_request(body: String) -> void:
 		return
 
 	# Send the event to the running game
-	Input.parse_input_event(event)
+	print("[MCP] Sending input event: ", event_type)
+
+	# Mouse button events currently require proper GUI routing setup
+	# For now, send them through the standard input system
+	if event is InputEventMouseButton:
+		var mouse_event = event as InputEventMouseButton
+		print("[MCP] Mouse button event at position: ", mouse_event.position)
+		print("[MCP] Note: UI element click detection requires further setup")
+
+	# Route through the input system
+	get_tree().root.push_input(event)
+
+	var response_msg = "Input event sent to game"
+	if event_type == "mouse_button":
+		response_msg = "Mouse button event sent. Note: UI element click detection is not yet fully supported. Use input actions or keyboard events for UI interaction."
 
 	_send_json_response({
 		"success": true,
 		"event_type": event_type,
-		"message": "Input event sent to game"
+		"message": response_msg
 	})
+
 
 func _create_action_event(data: Dictionary) -> InputEventAction:
 	var event := InputEventAction.new()
@@ -283,6 +298,7 @@ func _create_mouse_button_event(data: Dictionary) -> InputEventMouseButton:
 	event.shift_pressed = data.get("shift_pressed", false)
 	event.ctrl_pressed = data.get("ctrl_pressed", false)
 	event.meta_pressed = data.get("meta_pressed", false)
+	print("[MCP] Created mouse button event: button=%d, pressed=%s, position=%v" % [event.button_index, event.pressed, event.position])
 	return event
 
 func _create_mouse_motion_event(data: Dictionary) -> InputEventMouseMotion:
