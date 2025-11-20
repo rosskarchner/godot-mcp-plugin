@@ -9,6 +9,7 @@ const SceneTools = preload("res://addons/mcp_server/tools/scene_tools.gd")
 const NodeTools = preload("res://addons/mcp_server/tools/node_tools.gd")
 const ScriptTools = preload("res://addons/mcp_server/tools/script_tools.gd")
 const ResourceTools = preload("res://addons/mcp_server/tools/resource_tools.gd")
+const ResourceManagerTools = preload("res://addons/mcp_server/tools/resource_manager_tools.gd")
 const EditorTools = preload("res://addons/mcp_server/tools/editor_tools.gd")
 const ProjectTools = preload("res://addons/mcp_server/tools/project_tools.gd")
 const InputMapTools = preload("res://addons/mcp_server/tools/input_map_tools.gd")
@@ -23,6 +24,7 @@ var scene_tools: SceneTools
 var node_tools: NodeTools
 var script_tools: ScriptTools
 var resource_tools: ResourceTools
+var resource_manager_tools: ResourceManagerTools
 var editor_tools: EditorTools
 var project_tools: ProjectTools
 var input_map_tools: InputMapTools
@@ -33,6 +35,7 @@ func _init() -> void:
 	node_tools = NodeTools.new()
 	script_tools = ScriptTools.new()
 	resource_tools = ResourceTools.new()
+	resource_manager_tools = ResourceManagerTools.new()
 	editor_tools = EditorTools.new()
 	project_tools = ProjectTools.new()
 	input_map_tools = InputMapTools.new()
@@ -125,13 +128,13 @@ func _handle_tools_list(_params: Variant) -> Dictionary:
 	tools.append(_create_tool_schema(
 		"godot_scene_get_info",
 		"Get metadata about the currently edited scene file. Use this to check which scene is open, verify the scene path before saving, or confirm you're working in the correct scene. Returns scene file path, root node name, and type.",
-		{"type": "object", "properties": {}}
+		{"type": "object", "properties": {}, "required": []}
 	))
 
 	tools.append(_create_tool_schema(
 		"godot_scene_save",
 		"Save the current scene to disk, persisting all changes made to nodes, properties, and hierarchy. Use this after making modifications to preserve your work. Always call this before switching scenes or running tests to ensure changes are saved.",
-		{"type": "object", "properties": {}}
+		{"type": "object", "properties": {}, "required": []}
 	))
 
 	tools.append(_create_tool_schema(
@@ -348,7 +351,7 @@ func _handle_tools_list(_params: Variant) -> Dictionary:
 	tools.append(_create_tool_schema(
 		"godot_game_stop_scene",
 		"Stop the currently running scene and return to edit mode. Use this after testing is complete, when you need to make changes, or to reset the game state. Returns the editor to normal editing mode.",
-		{"type": "object", "properties": {}}
+		{"type": "object", "properties": {}, "required": []}
 	))
 
 	tools.append(_create_tool_schema(
@@ -400,7 +403,139 @@ func _handle_tools_list(_params: Variant) -> Dictionary:
 			}
 		}
 	))
-	
+
+	# Resource manager tools
+	tools.append(_create_tool_schema(
+		"godot_resource_list_types",
+		"List all available resource types that can be created in Godot. Use this to discover what types of resources can be instantiated and saved. Returns an array of resource class names.",
+		{"type": "object", "properties": {}, "required": []}
+	))
+
+	tools.append(_create_tool_schema(
+		"godot_resource_list_files",
+		"List all resource files (.tres, .res) in the project with optional filtering by type. Use this to discover available resources, find specific resource types, or get an overview of project resources.",
+		{
+			"type": "object",
+			"properties": {
+				"directory": {
+					"type": "string",
+					"description": "Starting directory to scan. Use 'res://' for project root, or specify subdirectories like 'res://resources', 'res://scenes'. Default: 'res://'",
+					"default": "res://"
+				},
+				"filter_type": {
+					"type": "string",
+					"description": "Filter by resource file type. Use 'tres' for text resources, 'res' for binary resources, or empty string for both. Default: ''",
+					"default": ""
+				}
+			}
+		}
+	))
+
+	tools.append(_create_tool_schema(
+		"godot_resource_get_info",
+		"Get metadata about a resource file including its type, class name, file size, and subresource count. Use this to inspect resource properties before loading or modifying.",
+		{
+			"type": "object",
+			"properties": {
+				"path": {
+					"type": "string",
+					"description": "Godot resource path to the resource file. Must use 'res://' prefix. Example: 'res://resources/my_resource.tres'"
+				}
+			},
+			"required": ["path"]
+		}
+	))
+
+	tools.append(_create_tool_schema(
+		"godot_resource_get_properties",
+		"Get all properties of a resource with their current values and types. Use this to inspect resource configuration before modifying values.",
+		{
+			"type": "object",
+			"properties": {
+				"path": {
+					"type": "string",
+					"description": "Godot resource path. Example: 'res://resources/my_resource.tres'"
+				}
+			},
+			"required": ["path"]
+		}
+	))
+
+	tools.append(_create_tool_schema(
+		"godot_resource_set_property",
+		"Set a property value on a resource and save it to disk. Use this to modify resource configuration programmatically.",
+		{
+			"type": "object",
+			"properties": {
+				"path": {
+					"type": "string",
+					"description": "Godot resource path. Example: 'res://resources/my_resource.tres'"
+				},
+				"property": {
+					"type": "string",
+					"description": "Name of the property to modify"
+				},
+				"value": {
+					"description": "New value for the property. Type must match property type. For Vector2/Vector3, use {\"type\": \"Vector2\", \"x\": 100, \"y\": 50}. For Color: {\"type\": \"Color\", \"r\": 1, \"g\": 0, \"b\": 0, \"a\": 1}"
+				}
+			},
+			"required": ["path", "property", "value"]
+		}
+	))
+
+	tools.append(_create_tool_schema(
+		"godot_resource_create",
+		"Create a new resource of the specified type and save it to disk. Use this to programmatically generate resource files.",
+		{
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"description": "Godot resource type to create. Use godot_resource_list_types to see available types. Examples: 'Resource', 'Gradient', 'Curve', 'Theme', 'AudioStreamWAV'"
+				},
+				"path": {
+					"type": "string",
+					"description": "File path where the resource will be saved. Must use 'res://' prefix and typically end with '.tres' extension. Example: 'res://resources/my_resource.tres'"
+				}
+			},
+			"required": ["type", "path"]
+		}
+	))
+
+	tools.append(_create_tool_schema(
+		"godot_resource_delete",
+		"Delete a resource file from the project. Use this to remove unused resources.",
+		{
+			"type": "object",
+			"properties": {
+				"path": {
+					"type": "string",
+					"description": "Godot resource path to delete. Example: 'res://resources/old_resource.tres'"
+				}
+			},
+			"required": ["path"]
+		}
+	))
+
+	tools.append(_create_tool_schema(
+		"godot_resource_duplicate",
+		"Create a copy of an existing resource with a new file path. Use this to duplicate resource configurations.",
+		{
+			"type": "object",
+			"properties": {
+				"source_path": {
+					"type": "string",
+					"description": "Path to the source resource file. Example: 'res://resources/original.tres'"
+				},
+				"destination_path": {
+					"type": "string",
+					"description": "Path where the duplicate will be saved. Example: 'res://resources/copy.tres'"
+				}
+			},
+			"required": ["source_path", "destination_path"]
+		}
+	))
+
 	# Editor tools
 	tools.append(_create_tool_schema(
 		"godot_editor_get_output",
@@ -475,7 +610,7 @@ func _handle_tools_list(_params: Variant) -> Dictionary:
 	tools.append(_create_tool_schema(
 		"godot_input_list_actions",
 		"List all input actions configured in the project with their key/button bindings. Use this to discover what input actions exist, check current key mappings, or verify input configuration before modifying. Returns action names, events (keys/buttons), and deadzone values.",
-		{"type": "object", "properties": {}}
+		{"type": "object", "properties": {}, "required": []}
 	))
 	
 	tools.append(_create_tool_schema(
@@ -783,6 +918,7 @@ func _handle_tools_call(params: Variant) -> Variant:
 	node_tools.editor_interface = editor_interface
 	script_tools.editor_interface = editor_interface
 	resource_tools.editor_interface = editor_interface
+	resource_manager_tools.editor_interface = editor_interface
 	editor_tools.editor_interface = editor_interface
 	editor_tools.editor_plugin = editor_plugin
 	project_tools.editor_interface = editor_interface
@@ -837,7 +973,25 @@ func _handle_tools_call(params: Variant) -> Variant:
 			result = resource_tools.get_game_scene_tree(arguments)
 		"godot_game_get_screenshot":
 			result = resource_tools.get_game_screenshot(arguments)
-		
+
+		# Resource manager tools
+		"godot_resource_list_types":
+			result = resource_manager_tools.list_resource_types(arguments)
+		"godot_resource_list_files":
+			result = resource_manager_tools.list_resource_files(arguments)
+		"godot_resource_get_info":
+			result = resource_manager_tools.get_resource_info(arguments)
+		"godot_resource_get_properties":
+			result = resource_manager_tools.get_resource_properties(arguments)
+		"godot_resource_set_property":
+			result = resource_manager_tools.set_resource_property(arguments)
+		"godot_resource_create":
+			result = resource_manager_tools.create_resource(arguments)
+		"godot_resource_delete":
+			result = resource_manager_tools.delete_resource(arguments)
+		"godot_resource_duplicate":
+			result = resource_manager_tools.duplicate_resource(arguments)
+
 		# Editor tools
 		"godot_editor_get_output":
 			result = editor_tools.read_editor_logs(arguments)
