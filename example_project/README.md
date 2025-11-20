@@ -70,6 +70,26 @@ curl -X POST http://localhost:8765 \
   }'
 ```
 
+## Comprehensive Testing
+
+This project includes a full test suite to verify all MCP plugin functionality:
+
+```bash
+./test_mcp_tools.sh
+```
+
+This runs 26 tests covering:
+- Scene management (load, get info, tree traversal)
+- Node operations (create, delete, rename, modify properties)
+- Script operations (attach scripts, read source)
+- Resource management (list files)
+- Project settings (get/set configuration)
+- Input management (actions, key bindings)
+- Editor output (logs and print statements)
+- Scene playback and screenshots
+
+See [TESTING.md](./TESTING.md) for detailed testing information.
+
 ## Expected Behavior
 
 When the plugin loads, you should see in the Output console:

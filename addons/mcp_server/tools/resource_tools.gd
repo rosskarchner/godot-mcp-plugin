@@ -232,12 +232,16 @@ func get_game_screenshot(args: Dictionary = {}) -> Dictionary:
 func _scan_directory(dir: DirAccess, path: String, filter: String, resources: Array[Dictionary]) -> void:
 	dir.list_dir_begin()
 	var file_name := dir.get_next()
-	
+
+	# Ensure path ends with / for proper concatenation
+	if not path.ends_with("/"):
+		path = path + "/"
+
 	while file_name != "":
 		if file_name.begins_with("."):
 			file_name = dir.get_next()
 			continue
-		
+
 		var full_path := path + file_name
 		
 		if dir.current_is_dir():
