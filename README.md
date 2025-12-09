@@ -1,3 +1,5 @@
+The features of this plugin have been rolled into https://github.com/rosskarchner/godot-mcp
+
 # Godot MCP Server Plugin
 
 A complete Model Context Protocol (MCP) server implementation for Godot Engine 4.x that enables AI agents like Claude to directly inspect and manipulate the Godot editor and running games through HTTP.
